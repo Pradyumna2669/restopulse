@@ -1,4 +1,55 @@
-import { RestaurantProfile, Category, MenuItem, RestaurantTable } from '../types';
+import { RestaurantProfile, Category, MenuItem, RestaurantTable, DeliveryPartnerConfig, Order } from '../types';
+
+export const fallbackDeliveryPartners: DeliveryPartnerConfig[] = [
+  {
+    partner: 'zomato',
+    name: 'Zomato Food Delivery',
+    enabled: true,
+    storeId: 'ZOM-DELHI-4902',
+    apiKey: 'zom_live_98a7c2e3',
+    webhookSecret: 'whsec_zomato_live_token',
+    autoAcceptOrders: true,
+    commissionPercent: 18,
+    color: '#E23744',
+    badgeBg: 'bg-rose-950/80 text-rose-300 border-rose-600/60'
+  },
+  {
+    partner: 'swiggy',
+    name: 'Swiggy Delivery Network',
+    enabled: true,
+    storeId: 'SWG-BLR-8812',
+    apiKey: 'swg_live_31b8f4a1',
+    webhookSecret: 'whsec_swiggy_live_token',
+    autoAcceptOrders: true,
+    commissionPercent: 20,
+    color: '#FC8019',
+    badgeBg: 'bg-orange-950/80 text-orange-300 border-orange-600/60'
+  },
+  {
+    partner: 'ondc',
+    name: 'ONDC Open Network (Magicpin/Ola/Paytm)',
+    enabled: true,
+    storeId: 'ONDC-MUM-1049',
+    apiKey: 'ondc_live_77c1d9f0',
+    webhookSecret: 'whsec_ondc_live_token',
+    autoAcceptOrders: false,
+    commissionPercent: 5,
+    color: '#2563EB',
+    badgeBg: 'bg-blue-950/80 text-blue-300 border-blue-600/60'
+  },
+  {
+    partner: 'magicpin',
+    name: 'Magicpin Local Delivery',
+    enabled: true,
+    storeId: 'MGCP-NCR-3390',
+    apiKey: 'mgcp_live_44d6a8b2',
+    webhookSecret: 'whsec_magicpin_live_token',
+    autoAcceptOrders: true,
+    commissionPercent: 12,
+    color: '#8B5CF6',
+    badgeBg: 'bg-purple-950/80 text-purple-300 border-purple-600/60'
+  }
+];
 
 export const fallbackProfile: RestaurantProfile = {
   id: 'rest_01',
@@ -26,7 +77,8 @@ export const fallbackProfile: RestaurantProfile = {
     autoSendInvoice: true,
     autoSendReviewPrompt: true,
     reviewPromptDelayMinutes: 0
-  }
+  },
+  deliveryPartners: fallbackDeliveryPartners
 };
 
 export const fallbackCategories: Category[] = [
@@ -143,7 +195,7 @@ export const fallbackTables: RestaurantTable[] = [
   { id: 'tbl_roof2', tableNumber: 'RF-02', section: 'Rooftop Lounge', capacity: 6, status: 'vacant', qrToken: 'sec_1c8e4a7d9b2f' }
 ];
 
-export const fallbackOrders = [
+export const fallbackOrders: Order[] = [
   {
     id: 'ord_demo_1',
     orderNumber: 'ORD-0001',
@@ -236,5 +288,119 @@ export const fallbackOrders = [
         kotStatus: 'prepared' as const
       }
     ]
+  },
+  {
+    id: 'ord_zomato_1',
+    orderNumber: 'ZOM-8821',
+    type: 'delivery' as const,
+    deliveryPartner: 'zomato' as const,
+    partnerOrderId: 'ZOM-8821',
+    partnerPickupCode: '4821',
+    partnerCommissionPercent: 18,
+    partnerCommissionAmount: 144,
+    partnerNetPayout: 656,
+    customerName: 'Ananya Roy',
+    customerPhone: '9876501234',
+    deliveryAddress: 'B-402, Green Glen Layout, Bellandur, Bangalore',
+    riderName: 'Rahul K. (Bajaj Pulsar)',
+    riderPhone: '9811223344',
+    riderStatus: 'assigned' as const,
+    partnerOrderStatus: 'preparing' as const,
+    status: 'preparing' as const,
+    items: [
+      {
+        id: 'item_z1',
+        menuItemId: 'item_butter_chicken',
+        name: 'Classic Butter Chicken',
+        quantity: 1,
+        unitPrice: 380,
+        station: 'kitchen' as const,
+        kotStatus: 'prepared' as const
+      },
+      {
+        id: 'item_z2',
+        menuItemId: 'item_garlic_naan',
+        name: 'Garlic Butter Naan',
+        quantity: 2,
+        unitPrice: 60,
+        station: 'tandoor' as const,
+        kotStatus: 'pending' as const
+      }
+    ],
+    createdAt: new Date(Date.now() - 8 * 60000).toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'ord_swiggy_1',
+    orderNumber: 'SWG-4512',
+    type: 'delivery' as const,
+    deliveryPartner: 'swiggy' as const,
+    partnerOrderId: 'SWG-4512',
+    partnerPickupCode: '9014',
+    partnerCommissionPercent: 20,
+    partnerCommissionAmount: 110,
+    partnerNetPayout: 440,
+    customerName: 'Karan Kapoor',
+    customerPhone: '9812345678',
+    deliveryAddress: 'Flat 12, Sunrise Apts, 100ft Road, Indiranagar',
+    riderName: 'Deepesh M. (Hero Splendor)',
+    riderPhone: '9833445566',
+    riderStatus: 'assigned' as const,
+    partnerOrderStatus: 'food_ready' as const,
+    status: 'ready' as const,
+    items: [
+      {
+        id: 'item_s1',
+        menuItemId: 'item_paneer_tikka',
+        name: 'Paneer Tikka Angara',
+        quantity: 1,
+        unitPrice: 280,
+        station: 'tandoor' as const,
+        kotStatus: 'prepared' as const
+      },
+      {
+        id: 'item_s2',
+        menuItemId: 'item_dal_makhani',
+        name: 'Dal Makhani Bukhara',
+        quantity: 1,
+        unitPrice: 270,
+        station: 'kitchen' as const,
+        kotStatus: 'prepared' as const
+      }
+    ],
+    createdAt: new Date(Date.now() - 14 * 60000).toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'ord_ondc_1',
+    orderNumber: 'ONDC-1094',
+    type: 'delivery' as const,
+    deliveryPartner: 'ondc' as const,
+    partnerOrderId: 'ONDC-1094',
+    partnerPickupCode: '2231',
+    partnerCommissionPercent: 5,
+    partnerCommissionAmount: 24,
+    partnerNetPayout: 456,
+    customerName: 'Sunil Mehta',
+    customerPhone: '9988776655',
+    deliveryAddress: 'Shop 4, Hill Road, Bandra West, Mumbai',
+    riderName: 'Shadowfax Rider: Vicky',
+    riderPhone: '9844556677',
+    riderStatus: 'unassigned' as const,
+    partnerOrderStatus: 'accepted' as const,
+    status: 'kot_printed' as const,
+    items: [
+      {
+        id: 'item_o1',
+        menuItemId: 'item_biryani',
+        name: 'Hyderabadi Chicken Dum Biryani',
+        quantity: 1,
+        unitPrice: 380,
+        station: 'kitchen' as const,
+        kotStatus: 'pending' as const
+      }
+    ],
+    createdAt: new Date(Date.now() - 3 * 60000).toISOString(),
+    updatedAt: new Date().toISOString()
   }
 ];

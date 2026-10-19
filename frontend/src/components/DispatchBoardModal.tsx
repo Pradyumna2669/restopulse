@@ -11,6 +11,7 @@ import {
   MessageCircle,
   ChefHat
 } from 'lucide-react';
+import { DeliveryPartnerBadge } from './DeliveryPartnerBadge';
 
 interface DispatchBoardModalProps {
   orders: Order[];
@@ -35,6 +36,7 @@ export const DispatchBoardModal: React.FC<DispatchBoardModalProps> = ({
   onClose
 }) => {
   const [activeTab, setActiveTab] = useState<'takeaway' | 'delivery'>('takeaway');
+  const [partnerFilter, setPartnerFilter] = useState<string>('all');
   const [localRiderMap, setLocalRiderMap] = useState<Record<string, string>>({});
   const [localRiderStatusMap, setLocalRiderStatusMap] = useState<Record<string, string>>({});
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -50,6 +52,19 @@ export const DispatchBoardModal: React.FC<DispatchBoardModalProps> = ({
 
   const activeTakeawayCount = takeawayOrders.filter(o => o.status !== 'settled').length;
   const activeDeliveryCount = deliveryOrders.filter(o => o.status !== 'settled').length;
+
+  // Filter delivery orders by aggregator/delivery partner
+  const filteredDeliveryOrders = deliveryOrders.filter(o => {
+    if (partnerFilter === 'all') return true;
+    if (partnerFilter === 'direct') return !o.deliveryPartner || o.deliveryPartner === 'direct';
+    return o.deliveryPartner === partnerFilter;
+  });
+
+  const zomatoCount = deliveryOrders.filter(o => o.deliveryPartner === 'zomato').length;
+  const swiggyCount = deliveryOrders.filter(o => o.deliveryPartner === 'swiggy').length;
+  const ondcCount = deliveryOrders.filter(o => o.deliveryPartner === 'ondc').length;
+  const magicpinCount = deliveryOrders.filter(o => o.deliveryPartner === 'magicpin').length;
+  const directCount = deliveryOrders.filter(o => !o.deliveryPartner || o.deliveryPartner === 'direct').length;
 
   const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
     try {
@@ -277,21 +292,96 @@ export const DispatchBoardModal: React.FC<DispatchBoardModalProps> = ({
 
         {/* Tab 2: Delivery & Rider Dispatch View */}
         {activeTab === 'delivery' && (
-          <div className="p-6 overflow-y-auto flex-1">
-            {deliveryOrders.length === 0 ? (
+          <div className="p-6 overflow-y-auto flex-1 flex flex-col space-y-4">
+            {/* Delivery Partner Filter Bar */}
+            <div className="flex items-center space-x-2 overflow-x-auto pb-1 text-xs shrink-0">
+              <span className="text-slate-400 font-semibold mr-1">Filter Partner:</span>
+              <button
+                onClick={() => setPartnerFilter('all')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                  partnerFilter === 'all'
+                    ? 'bg-slate-200 text-slate-900 shadow'
+                    : 'bg-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                All Deliveries ({deliveryOrders.length})
+              </button>
+              <button
+                onClick={() => setPartnerFilter('zomato')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center space-x-1.5 ${
+                  partnerFilter === 'zomato'
+                    ? 'bg-red-600 text-white shadow'
+                    : 'bg-red-950/40 text-red-400 border border-red-800/40 hover:bg-red-900/40'
+                }`}
+              >
+                <span>🔴 Zomato</span>
+                <span className="bg-black/30 px-1.5 py-0.2 rounded-full text-[10px]">{zomatoCount}</span>
+              </button>
+              <button
+                onClick={() => setPartnerFilter('swiggy')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center space-x-1.5 ${
+                  partnerFilter === 'swiggy'
+                    ? 'bg-orange-600 text-white shadow'
+                    : 'bg-orange-950/40 text-orange-400 border border-orange-800/40 hover:bg-orange-900/40'
+                }`}
+              >
+                <span>🟠 Swiggy</span>
+                <span className="bg-black/30 px-1.5 py-0.2 rounded-full text-[10px]">{swiggyCount}</span>
+              </button>
+              <button
+                onClick={() => setPartnerFilter('ondc')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center space-x-1.5 ${
+                  partnerFilter === 'ondc'
+                    ? 'bg-blue-600 text-white shadow'
+                    : 'bg-blue-950/40 text-blue-400 border border-blue-800/40 hover:bg-blue-900/40'
+                }`}
+              >
+                <span>🔵 ONDC</span>
+                <span className="bg-black/30 px-1.5 py-0.2 rounded-full text-[10px]">{ondcCount}</span>
+              </button>
+              <button
+                onClick={() => setPartnerFilter('magicpin')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center space-x-1.5 ${
+                  partnerFilter === 'magicpin'
+                    ? 'bg-purple-600 text-white shadow'
+                    : 'bg-purple-950/40 text-purple-400 border border-purple-800/40 hover:bg-purple-900/40'
+                }`}
+              >
+                <span>🟣 Magicpin</span>
+                <span className="bg-black/30 px-1.5 py-0.2 rounded-full text-[10px]">{magicpinCount}</span>
+              </button>
+              <button
+                onClick={() => setPartnerFilter('direct')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center space-x-1.5 ${
+                  partnerFilter === 'direct'
+                    ? 'bg-emerald-600 text-white shadow'
+                    : 'bg-emerald-950/40 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-900/40'
+                }`}
+              >
+                <span>🟢 In-House</span>
+                <span className="bg-black/30 px-1.5 py-0.2 rounded-full text-[10px]">{directCount}</span>
+              </button>
+            </div>
+
+            {filteredDeliveryOrders.length === 0 ? (
               <div className="text-center py-16 text-slate-500">
                 <Bike className="w-12 h-12 mx-auto mb-2 text-slate-600 stroke-1" />
-                <p className="text-sm font-semibold text-slate-400">No active delivery orders</p>
+                <p className="text-sm font-semibold text-slate-400">No matching delivery orders</p>
                 <p className="text-xs text-slate-500 mt-1">
-                  Place a Delivery order from the POS header to dispatch riders from here
+                  {partnerFilter === 'all'
+                    ? 'Place a Delivery order or simulate an aggregator inbound order from CRM'
+                    : `No active orders found for ${partnerFilter.toUpperCase()}`}
                 </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {deliveryOrders.map(order => {
-                  const assignedRider = localRiderMap[order.id] || order.riderName || 'In-House Rider (Ramesh)';
+                {filteredDeliveryOrders.map(order => {
+                  const isPartnerOrder = Boolean(order.deliveryPartner && order.deliveryPartner !== 'direct');
+                  const partnerName = order.deliveryPartner ? order.deliveryPartner.toUpperCase() : 'PARTNER';
+                  const assignedRider = localRiderMap[order.id] || order.riderName || (isPartnerOrder ? `${partnerName} Fleet Rider` : 'In-House Rider (Ramesh)');
                   const riderStatus = localRiderStatusMap[order.id] || order.riderStatus || 'assigned';
                   const isDelivered = order.status === 'settled' || riderStatus === 'delivered';
+                  const total = getOrderTotal(order);
 
                   return (
                     <div
@@ -301,19 +391,29 @@ export const DispatchBoardModal: React.FC<DispatchBoardModalProps> = ({
                           ? 'bg-slate-900/40 border-slate-800 opacity-60'
                           : riderStatus === 'out_for_delivery'
                           ? 'bg-blue-950/30 border-blue-500/70 shadow-lg shadow-blue-950/30'
+                          : isPartnerOrder
+                          ? 'bg-slate-850 border-amber-500/30 shadow-md'
                           : 'bg-slate-850 border-slate-700/80'
                       }`}
                     >
-                      <div>
-                        {/* Header */}
-                        <div className="flex items-center justify-between pb-3 border-b border-slate-700/80">
-                          <div>
-                            <span className="text-base font-extrabold text-white">
-                              {order.orderNumber}
-                            </span>
-                            <span className="text-xs text-slate-400 ml-2">
-                              {getElapsedTime(order.createdAt)}
-                            </span>
+                      <div className="space-y-3">
+                        {/* Header with Order Code and Partner Badge */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-700/80">
+                          <div className="flex items-center space-x-2">
+                            <div>
+                              <span className="text-base font-extrabold text-white">
+                                {order.orderNumber}
+                              </span>
+                              <span className="text-xs text-slate-400 ml-2">
+                                {getElapsedTime(order.createdAt)}
+                              </span>
+                            </div>
+                            <DeliveryPartnerBadge
+                              partner={order.deliveryPartner}
+                              partnerOrderId={order.partnerOrderId}
+                              partnerPickupCode={order.partnerPickupCode}
+                              size="sm"
+                            />
                           </div>
 
                           <span
@@ -330,7 +430,7 @@ export const DispatchBoardModal: React.FC<DispatchBoardModalProps> = ({
                         </div>
 
                         {/* Customer & Address Details */}
-                        <div className="mt-3 space-y-2 text-xs">
+                        <div className="space-y-2 text-xs">
                           <div className="flex items-center justify-between">
                             <span className="font-bold text-slate-200">
                               {order.customerName || 'Direct Customer'}
@@ -351,8 +451,44 @@ export const DispatchBoardModal: React.FC<DispatchBoardModalProps> = ({
                           )}
                         </div>
 
+                        {/* Aggregator Net Payout Breakdown */}
+                        {isPartnerOrder && (
+                          <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs flex items-center justify-between">
+                            <div className="flex items-center space-x-1 text-slate-400">
+                              <span>Fee ({order.partnerCommissionPercent || 18}%):</span>
+                              <span className="text-amber-400 font-bold font-mono">
+                                -{currencySymbol}{(order.partnerCommissionAmount || (total * 0.18)).toFixed(0)}
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <span className="text-slate-400">Net Payout:</span>
+                              <span className="text-emerald-400 font-bold font-mono">
+                                {currencySymbol}{(order.partnerNetPayout || (total * 0.82)).toFixed(0)}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Items Preview */}
+                        <div className="p-2 rounded-xl bg-slate-900/60 border border-slate-800 text-xs space-y-1">
+                          {order.items.map(item => (
+                            <div key={item.id} className="flex justify-between text-slate-300">
+                              <span>
+                                {item.quantity}x {item.name}
+                              </span>
+                              <span className="text-slate-400 font-mono">
+                                {currencySymbol}{(item.quantity * item.unitPrice).toFixed(0)}
+                              </span>
+                            </div>
+                          ))}
+                          <div className="pt-1 border-t border-slate-800 flex justify-between font-bold text-white text-[11px]">
+                            <span>Gross Bill</span>
+                            <span className="font-mono text-brand-400">{currencySymbol}{total.toFixed(2)}</span>
+                          </div>
+                        </div>
+
                         {/* Rider Assignment Selector */}
-                        <div className="mt-3 pt-3 border-t border-slate-800 flex items-center justify-between gap-2 text-xs">
+                        <div className="pt-2 border-t border-slate-800 flex items-center justify-between gap-2 text-xs">
                           <label className="text-slate-400 text-[11px] font-semibold flex items-center space-x-1">
                             <Bike className="w-3.5 h-3.5 text-blue-400" />
                             <span>Rider:</span>
@@ -367,6 +503,11 @@ export const DispatchBoardModal: React.FC<DispatchBoardModalProps> = ({
                             }
                             className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-blue-400"
                           >
+                            {isPartnerOrder && (
+                              <option value={`${partnerName} Fleet Rider`}>
+                                {partnerName} Fleet Rider ({order.partnerPickupCode ? `OTP ${order.partnerPickupCode}` : 'Auto-Assigned'})
+                              </option>
+                            )}
                             {RIDER_LIST.map(r => (
                               <option key={r} value={r}>
                                 {r}
@@ -390,7 +531,11 @@ export const DispatchBoardModal: React.FC<DispatchBoardModalProps> = ({
                             className="flex-1 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold flex items-center justify-center space-x-1 shadow-sm transition-all"
                           >
                             <Bike className="w-3.5 h-3.5" />
-                            <span>Out for Delivery</span>
+                            <span>
+                              {isPartnerOrder
+                                ? `Verify OTP & Hand Over (${order.partnerPickupCode ? `OTP: ${order.partnerPickupCode}` : 'Partner Rider'})`
+                                : 'Out for Delivery'}
+                            </span>
                           </button>
                         )}
 

@@ -520,6 +520,7 @@ export const App: React.FC = () => {
         openwaOnline={openwaOnline}
         activeOrderCount={orders.filter(o => ['kot_printed', 'preparing', 'ready'].includes(o.status)).length}
         activeDispatchCount={orders.filter(o => (o.type === 'takeaway' || o.type === 'delivery') && o.status !== 'settled' && o.status !== 'cancelled').length}
+        aggregatorOrderCount={orders.filter(o => o.deliveryPartner && o.deliveryPartner !== 'direct' && o.status !== 'settled' && o.status !== 'cancelled').length}
         lowStockCount={lowStockCount}
         onOpenKds={() => setViewMode('kds')}
         onOpenDispatchBoard={() => setIsDispatchBoardOpen(true)}
@@ -700,6 +701,7 @@ export const App: React.FC = () => {
         <CustomerCrmModal
           currencySymbol={profile.currencySymbol}
           onClose={() => setIsCrmOpen(false)}
+          onOrderSimulated={refreshOrders}
         />
       )}
 

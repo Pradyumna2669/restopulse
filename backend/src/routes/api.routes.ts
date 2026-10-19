@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
 import { store } from '../data/store';
 import { OpenWAService } from '../services/openwa.service';
-import { Order, Bill, OrderItem } from '../types';
+import { Order, Bill, OrderItem, DeliveryPartner } from '../types';
 
 export const apiRouter = Router();
 
@@ -728,5 +728,54 @@ apiRouter.post('/waitlist/:id/notify-whatsapp', async (req: Request, res: Respon
 
   const result = await OpenWAService.dispatchTableReadyAlert(entry.guestName, entry.guestPhone, tableNumber);
   res.json(result);
+});
+
+// ==========================================
+// 12. Delivery Partner Integrations (Zomato / Swiggy / ONDC)
+// ==========================================
+apiRouter.get('/delivery-partners', (req: Request, res: Response) => {
+  res.json(store.getDeliveryPartners());
+});
+
+apiRouter.put('/delivery-partners/:partner', (req: Request, res: Response) => {
+  const partner = req.params.partner as DeliveryPartner;
+  const updated = store.updateDeliveryPartnerConfig(partner, req.body);
+  if (!updated) {
+    return res.status(404).json({ error: 'Delivery partner not found' });
+  }
+  res.json(updated);
+});
+
+apiRouter.post('/delivery-partners/simulate/:partner', (req: Request, res: Response) => {
+  const partner = req.params.partner as DeliveryPartner;
+  const validPartners: DeliveryPartner[] = ['zomato', 'swiggy', 'ondc', 'magicpin'];
+  if (!validPartners.includes(partner)) {
+    return res.status(400).json({ error: 'Invalid delivery partner name' });
+  }
+
+  const order = store.simulatePartnerOrder(partner, req.body);
+  res.status(201).json({ success: true, order });
+});
+
+// Live Inbound Webhook for delivery partners (Zomato / Swiggy Webhook receiver)
+apiRouter.post('/webhooks/aggregators/:partner', (req: Request, res: Response) => {
+  const partner = req.params.partner as DeliveryPartner;
+  console.log(`[Aggregator Webhook] Inbound order payload from ${partner.toUpperCase()}:`, req.body);
+  const order = store.simulatePartnerOrder(partner, req.body);
+  res.status(200).json({
+    status: 'acknowledged',
+    orderId: order.partnerOrderId,
+    restaurantOrderId: order.id,
+    timestamp: new Date().toISOString()
+  });
+});
+
+apiRouter.patch('/orders/:id/partner-status', (req: Request, res: Response) => {
+  const { partnerStatus, riderStatus } = req.body;
+  const order = store.updatePartnerOrderStatus(req.params.id, partnerStatus, riderStatus);
+  if (!order) {
+    return res.status(404).json({ error: 'Order not found' });
+  }
+  res.json(order);
 });
 

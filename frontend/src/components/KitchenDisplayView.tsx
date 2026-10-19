@@ -19,6 +19,7 @@ import {
   User,
   Coffee
 } from 'lucide-react';
+import { DeliveryPartnerBadge } from './DeliveryPartnerBadge';
 
 interface KitchenDisplayViewProps {
   profile: RestaurantProfile;
@@ -424,23 +425,32 @@ export const KitchenDisplayView: React.FC<KitchenDisplayViewProps> = ({
                     }`}
                   >
                     <div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2 flex-wrap gap-y-1">
                         <span className="text-xs font-mono font-black text-white">{order.orderNumber}</span>
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                            order.type === 'dine_in'
-                              ? 'bg-brand-500/20 text-brand-300 border border-brand-500/30'
+                        {order.deliveryPartner && order.deliveryPartner !== 'direct' ? (
+                          <DeliveryPartnerBadge
+                            partner={order.deliveryPartner}
+                            partnerOrderId={order.partnerOrderId}
+                            partnerPickupCode={order.partnerPickupCode}
+                            size="sm"
+                          />
+                        ) : (
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                              order.type === 'dine_in'
+                                ? 'bg-brand-500/20 text-brand-300 border border-brand-500/30'
+                                : order.type === 'takeaway'
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                            }`}
+                          >
+                            {order.type === 'dine_in'
+                              ? `Table ${order.tableNumber || 'N/A'}`
                               : order.type === 'takeaway'
-                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                              : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                          }`}
-                        >
-                          {order.type === 'dine_in'
-                            ? `Table ${order.tableNumber || 'N/A'}`
-                            : order.type === 'takeaway'
-                            ? 'Takeaway'
-                            : 'Delivery'}
-                        </span>
+                              ? 'Takeaway'
+                              : 'Direct Delivery'}
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex items-center space-x-1.5 text-[11px] text-slate-400 mt-1">
@@ -448,6 +458,11 @@ export const KitchenDisplayView: React.FC<KitchenDisplayViewProps> = ({
                         <span className="truncate max-w-[130px] font-medium text-slate-300">
                           {order.customerName || 'Guest'}
                         </span>
+                        {order.riderName && (
+                          <span className="text-[10px] text-amber-400 font-mono font-bold truncate">
+                            • 🛵 {order.riderName}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -584,7 +599,13 @@ export const KitchenDisplayView: React.FC<KitchenDisplayViewProps> = ({
                         className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 transition-all shadow-md active:scale-98"
                       >
                         <Check className="w-4 h-4" />
-                        <span>Serve to Table</span>
+                        <span>
+                          {order.type === 'delivery'
+                            ? `Hand to ${order.deliveryPartner ? order.deliveryPartner.toUpperCase() : 'Rider'}`
+                            : order.type === 'takeaway'
+                            ? 'Hand to Customer'
+                            : 'Serve to Table'}
+                        </span>
                       </button>
                     )}
 

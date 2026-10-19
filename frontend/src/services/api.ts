@@ -14,7 +14,9 @@ import {
   RecipeItem,
   CustomerProfile,
   TableReservation,
-  GuestWaitlistEntry
+  GuestWaitlistEntry,
+  DeliveryPartner,
+  DeliveryPartnerConfig
 } from '../types';
 
 const API_BASE = '/api';
@@ -552,6 +554,44 @@ export const ApiService = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tableNumber })
+    });
+    return res.json();
+  },
+
+  // Food Delivery Partner APIs (Zomato / Swiggy / ONDC)
+  async getDeliveryPartners(): Promise<DeliveryPartnerConfig[]> {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/delivery-partners`, {}, 2500);
+      if (!res.ok) return [];
+      return res.json();
+    } catch {
+      return [];
+    }
+  },
+
+  async updateDeliveryPartner(partner: DeliveryPartner, config: Partial<DeliveryPartnerConfig>): Promise<DeliveryPartnerConfig> {
+    const res = await fetchWithTimeout(`${API_BASE}/delivery-partners/${partner}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config)
+    });
+    return res.json();
+  },
+
+  async simulatePartnerOrder(partner: DeliveryPartner, customPayload?: any): Promise<{ success: boolean; order: Order }> {
+    const res = await fetchWithTimeout(`${API_BASE}/delivery-partners/simulate/${partner}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(customPayload || {})
+    });
+    return res.json();
+  },
+
+  async updatePartnerOrderStatus(orderId: string, partnerStatus: Order['partnerOrderStatus'], riderStatus?: Order['riderStatus']): Promise<Order> {
+    const res = await fetchWithTimeout(`${API_BASE}/orders/${orderId}/partner-status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ partnerStatus, riderStatus })
     });
     return res.json();
   }

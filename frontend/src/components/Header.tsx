@@ -12,6 +12,7 @@ interface HeaderProps {
   activeOrderCount?: number;
   activeDispatchCount?: number;
   lowStockCount?: number;
+  aggregatorOrderCount?: number;
   onOpenKds: () => void;
   onOpenDispatchBoard?: () => void;
   onOpenInventory?: () => void;
@@ -36,6 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeOrderCount = 0,
   activeDispatchCount = 0,
   lowStockCount = 0,
+  aggregatorOrderCount = 0,
   onOpenKds,
   onOpenDispatchBoard,
   onOpenInventory,
@@ -162,6 +164,18 @@ export const Header: React.FC<HeaderProps> = ({
                 {activeDispatchCount}
               </span>
             )}
+          </button>
+        )}
+
+        {/* Live Aggregator Orders Indicator (Zomato / Swiggy / ONDC) */}
+        {aggregatorOrderCount > 0 && (
+          <button
+            onClick={onOpenDispatchBoard}
+            className="flex items-center space-x-1.5 bg-red-950/60 hover:bg-red-900/70 text-red-300 border border-red-700/60 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm"
+            title="Live Food Aggregator Orders (Zomato / Swiggy / ONDC)"
+          >
+            <span className="w-2 h-2 rounded-full bg-red-400 animate-ping" />
+            <span>🛵 Partners: {aggregatorOrderCount}</span>
           </button>
         )}
 

@@ -8,6 +8,7 @@ import {
   MenuItem,
   RestaurantTable,
   Order,
+  OrderItem,
   Bill,
   OrderStatus,
   RawMaterial,
@@ -18,7 +19,9 @@ import {
   CustomerProfile,
   TableReservation,
   GuestWaitlistEntry,
-  SplitPaymentEntry
+  SplitPaymentEntry,
+  DeliveryPartner,
+  DeliveryPartnerConfig
 } from '../types';
 
 interface StoreData {
@@ -42,6 +45,57 @@ const DATA_FILE = path.join(__dirname, 'store.json');
 export function generateSecureQrToken(): string {
   return 'tbl_' + crypto.randomBytes(8).toString('hex');
 }
+
+export const initialDeliveryPartners: DeliveryPartnerConfig[] = [
+  {
+    partner: 'zomato',
+    name: 'Zomato Food Delivery',
+    enabled: true,
+    storeId: 'ZOM-DELHI-4902',
+    apiKey: 'zom_live_98a7c2e3',
+    webhookSecret: 'whsec_zomato_live_token',
+    autoAcceptOrders: true,
+    commissionPercent: 18,
+    color: '#E23744',
+    badgeBg: 'bg-rose-950/80 text-rose-300 border-rose-600/60'
+  },
+  {
+    partner: 'swiggy',
+    name: 'Swiggy Delivery Network',
+    enabled: true,
+    storeId: 'SWG-BLR-8812',
+    apiKey: 'swg_live_31b8f4a1',
+    webhookSecret: 'whsec_swiggy_live_token',
+    autoAcceptOrders: true,
+    commissionPercent: 20,
+    color: '#FC8019',
+    badgeBg: 'bg-orange-950/80 text-orange-300 border-orange-600/60'
+  },
+  {
+    partner: 'ondc',
+    name: 'ONDC Open Network (Magicpin/Ola/Paytm)',
+    enabled: true,
+    storeId: 'ONDC-MUM-1049',
+    apiKey: 'ondc_live_77c1d9f0',
+    webhookSecret: 'whsec_ondc_live_token',
+    autoAcceptOrders: false,
+    commissionPercent: 5,
+    color: '#2563EB',
+    badgeBg: 'bg-blue-950/80 text-blue-300 border-blue-600/60'
+  },
+  {
+    partner: 'magicpin',
+    name: 'Magicpin Local Delivery',
+    enabled: true,
+    storeId: 'MGCP-NCR-3390',
+    apiKey: 'mgcp_live_44d6a8b2',
+    webhookSecret: 'whsec_magicpin_live_token',
+    autoAcceptOrders: true,
+    commissionPercent: 12,
+    color: '#8B5CF6',
+    badgeBg: 'bg-purple-950/80 text-purple-300 border-purple-600/60'
+  }
+];
 
 const initialProfile: RestaurantProfile = {
   id: 'rest_01',
@@ -69,7 +123,8 @@ const initialProfile: RestaurantProfile = {
     autoSendInvoice: true,
     autoSendReviewPrompt: true,
     reviewPromptDelayMinutes: 0
-  }
+  },
+  deliveryPartners: initialDeliveryPartners
 };
 
 const initialCategories: Category[] = [
@@ -310,6 +365,123 @@ const initialWaitlist: GuestWaitlistEntry[] = [
   }
 ];
 
+const initialOrders: Order[] = [
+  {
+    id: 'ord_zomato_1',
+    orderNumber: 'ZOM-8821',
+    type: 'delivery',
+    deliveryPartner: 'zomato',
+    partnerOrderId: 'ZOM-8821',
+    partnerPickupCode: '4821',
+    partnerCommissionPercent: 18,
+    partnerCommissionAmount: 144,
+    partnerNetPayout: 656,
+    customerName: 'Ananya Roy',
+    customerPhone: '9876501234',
+    deliveryAddress: 'B-402, Green Glen Layout, Bellandur, Bangalore',
+    riderName: 'Rahul K. (Bajaj Pulsar)',
+    riderPhone: '9811223344',
+    riderStatus: 'assigned',
+    partnerOrderStatus: 'preparing',
+    status: 'preparing',
+    items: [
+      {
+        id: 'item_z1',
+        menuItemId: 'item_butter_chicken',
+        name: 'Classic Butter Chicken',
+        quantity: 1,
+        unitPrice: 380,
+        station: 'kitchen',
+        kotStatus: 'prepared'
+      },
+      {
+        id: 'item_z2',
+        menuItemId: 'item_garlic_naan',
+        name: 'Garlic Butter Naan',
+        quantity: 2,
+        unitPrice: 60,
+        station: 'tandoor',
+        kotStatus: 'pending'
+      }
+    ],
+    createdAt: new Date(Date.now() - 8 * 60000).toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'ord_swiggy_1',
+    orderNumber: 'SWG-4512',
+    type: 'delivery',
+    deliveryPartner: 'swiggy',
+    partnerOrderId: 'SWG-4512',
+    partnerPickupCode: '9014',
+    partnerCommissionPercent: 20,
+    partnerCommissionAmount: 110,
+    partnerNetPayout: 440,
+    customerName: 'Karan Kapoor',
+    customerPhone: '9812345678',
+    deliveryAddress: 'Flat 12, Sunrise Apts, 100ft Road, Indiranagar',
+    riderName: 'Deepesh M. (Hero Splendor)',
+    riderPhone: '9833445566',
+    riderStatus: 'assigned',
+    partnerOrderStatus: 'food_ready',
+    status: 'ready',
+    items: [
+      {
+        id: 'item_s1',
+        menuItemId: 'item_paneer_tikka',
+        name: 'Paneer Tikka Angara',
+        quantity: 1,
+        unitPrice: 280,
+        station: 'tandoor',
+        kotStatus: 'prepared'
+      },
+      {
+        id: 'item_s2',
+        menuItemId: 'item_dal_makhani',
+        name: 'Dal Makhani Bukhara',
+        quantity: 1,
+        unitPrice: 270,
+        station: 'kitchen',
+        kotStatus: 'prepared'
+      }
+    ],
+    createdAt: new Date(Date.now() - 14 * 60000).toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'ord_ondc_1',
+    orderNumber: 'ONDC-1094',
+    type: 'delivery',
+    deliveryPartner: 'ondc',
+    partnerOrderId: 'ONDC-1094',
+    partnerPickupCode: '2231',
+    partnerCommissionPercent: 5,
+    partnerCommissionAmount: 24,
+    partnerNetPayout: 456,
+    customerName: 'Sunil Mehta',
+    customerPhone: '9988776655',
+    deliveryAddress: 'Shop 4, Hill Road, Bandra West, Mumbai',
+    riderName: 'Shadowfax Rider: Vicky',
+    riderPhone: '9844556677',
+    riderStatus: 'unassigned',
+    partnerOrderStatus: 'accepted',
+    status: 'kot_printed',
+    items: [
+      {
+        id: 'item_o1',
+        menuItemId: 'item_biryani',
+        name: 'Hyderabadi Chicken Dum Biryani',
+        quantity: 1,
+        unitPrice: 380,
+        station: 'kitchen',
+        kotStatus: 'pending'
+      }
+    ],
+    createdAt: new Date(Date.now() - 3 * 60000).toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+];
+
 class Store {
   private data: StoreData;
 
@@ -325,8 +497,11 @@ class Store {
         if (!parsed.profile.featureFlags) {
           parsed.profile.featureFlags = initialProfile.featureFlags;
         }
-        if (!parsed.orders) {
-          parsed.orders = [];
+        if (!parsed.profile.deliveryPartners || parsed.profile.deliveryPartners.length === 0) {
+          parsed.profile.deliveryPartners = initialDeliveryPartners;
+        }
+        if (!parsed.orders || parsed.orders.length === 0) {
+          parsed.orders = initialOrders;
         }
         if (!parsed.bills) {
           parsed.bills = [];
@@ -1070,6 +1245,138 @@ class Store {
       return entry;
     }
     return undefined;
+  }
+
+  // ==========================================
+  // Delivery Partner Integrations (Zomato / Swiggy / ONDC)
+  // ==========================================
+  getDeliveryPartners(): DeliveryPartnerConfig[] {
+    const prof = this.getProfile();
+    if (!prof.deliveryPartners || prof.deliveryPartners.length === 0) {
+      prof.deliveryPartners = initialDeliveryPartners;
+      this.save(this.data);
+    }
+    return prof.deliveryPartners;
+  }
+
+  updateDeliveryPartnerConfig(partner: DeliveryPartner, update: Partial<DeliveryPartnerConfig>): DeliveryPartnerConfig | undefined {
+    const list = this.getDeliveryPartners();
+    const config = list.find(p => p.partner === partner);
+    if (config) {
+      Object.assign(config, update);
+      this.save(this.data);
+      return config;
+    }
+    return undefined;
+  }
+
+  simulatePartnerOrder(partner: DeliveryPartner, customPayload?: Partial<Order>): Order {
+    const partners = this.getDeliveryPartners();
+    const partnerConfig = partners.find(p => p.partner === partner) || {
+      partner,
+      name: partner.toUpperCase(),
+      enabled: true,
+      storeId: `${partner.toUpperCase()}-STORE`,
+      commissionPercent: 18,
+      apiKey: '',
+      webhookSecret: '',
+      autoAcceptOrders: true,
+      color: '#E23744',
+      badgeBg: 'bg-rose-950/80 text-rose-300'
+    };
+
+    const prefix = partner === 'zomato' ? 'ZOM' : partner === 'swiggy' ? 'SWG' : partner === 'ondc' ? 'ONDC' : 'MGC';
+    const randCode = Math.floor(1000 + Math.random() * 9000);
+    const partnerOrderId = `${prefix}-${randCode}`;
+    const partnerPickupCode = String(Math.floor(1000 + Math.random() * 9000));
+
+    // Choose 1 or 2 menu items
+    const menuItems = this.getMenuItems();
+    const sampleItems = menuItems.length > 0 ? [menuItems[Math.floor(Math.random() * menuItems.length)]] : [];
+    const orderItems: OrderItem[] = sampleItems.map((item) => ({
+      id: 'poi_' + uuidv4().slice(0, 8),
+      menuItemId: item.id,
+      name: item.name,
+      quantity: Math.floor(1 + Math.random() * 2),
+      unitPrice: item.basePrice,
+      station: item.station || 'kitchen',
+      kotStatus: 'pending'
+    }));
+
+    let subtotal = orderItems.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
+    if (subtotal === 0) subtotal = 380;
+    const commPercent = partnerConfig.commissionPercent || 18;
+    const commAmount = Number(((subtotal * commPercent) / 100).toFixed(2));
+    const netPayout = Number((subtotal - commAmount).toFixed(2));
+
+    const sampleGuests = [
+      { name: 'Aditi Deshmukh', phone: '9822334455', address: 'Flat 401, Sapphire Heights, 12th Main Road' },
+      { name: 'Nikhil Saxena', phone: '9833441122', address: 'House 8B, Defence Colony, Ring Road' },
+      { name: 'Ritika Sen', phone: '9877001122', address: 'Tower 2, Apt 904, Prestige Palms, Whitefield' },
+      { name: 'Manish Chawla', phone: '9811998877', address: 'Plot 42, Pocket C, Vasant Kunj' }
+    ];
+    const guest = sampleGuests[Math.floor(Math.random() * sampleGuests.length)];
+
+    const riders = [
+      { name: 'Mahesh (Honda Activa)', phone: '9899001122' },
+      { name: 'Praveen (Hero Splendor)', phone: '9822114455' },
+      { name: 'Vikas (TVS Jupiter)', phone: '9844332211' }
+    ];
+    const rider = riders[Math.floor(Math.random() * riders.length)];
+
+    const newOrder: Order = {
+      id: 'ord_' + uuidv4().slice(0, 8),
+      orderNumber: partnerOrderId,
+      type: 'delivery',
+      deliveryPartner: partner,
+      partnerOrderId,
+      partnerPickupCode,
+      partnerCommissionPercent: commPercent,
+      partnerCommissionAmount: commAmount,
+      partnerNetPayout: netPayout,
+      partnerOrderStatus: partnerConfig.autoAcceptOrders ? 'accepted' : 'placed',
+      customerName: guest.name,
+      customerPhone: guest.phone,
+      deliveryAddress: guest.address,
+      riderName: rider.name,
+      riderPhone: rider.phone,
+      riderStatus: 'assigned',
+      items: orderItems,
+      status: partnerConfig.autoAcceptOrders ? 'preparing' : 'kot_printed',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      ...customPayload
+    };
+
+    // Auto-upsert into CRM tagged with partner channel
+    this.upsertCustomer({
+      phone: newOrder.customerPhone || '9876543210',
+      name: newOrder.customerName || 'Delivery Guest',
+      notes: `Acquired via ${partnerConfig.name}`
+    });
+
+    return this.createOrder(newOrder);
+  }
+
+  updatePartnerOrderStatus(orderId: string, partnerStatus: Order['partnerOrderStatus'], riderStatus?: Order['riderStatus']): Order | undefined {
+    const order = this.getOrderById(orderId);
+    if (!order) return undefined;
+
+    order.partnerOrderStatus = partnerStatus;
+    if (riderStatus) order.riderStatus = riderStatus;
+
+    if (partnerStatus === 'food_ready') {
+      order.status = 'ready';
+    } else if (partnerStatus === 'picked_up') {
+      order.riderStatus = 'out_for_delivery';
+    } else if (partnerStatus === 'delivered') {
+      order.status = 'settled';
+      order.riderStatus = 'delivered';
+    }
+
+    order.updatedAt = new Date().toISOString();
+    this.save(this.data);
+    return order;
   }
 }
 

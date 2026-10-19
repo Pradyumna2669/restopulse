@@ -15,6 +15,21 @@ export interface FeatureFlags {
   enableKds: boolean;
 }
 
+export type DeliveryPartner = 'direct' | 'zomato' | 'swiggy' | 'ondc' | 'magicpin';
+
+export interface DeliveryPartnerConfig {
+  partner: DeliveryPartner;
+  name: string;
+  enabled: boolean;
+  storeId: string;
+  apiKey: string;
+  webhookSecret: string;
+  autoAcceptOrders: boolean;
+  commissionPercent: number;
+  color: string;
+  badgeBg: string;
+}
+
 export interface RestaurantProfile {
   id: string;
   name: string;
@@ -34,6 +49,7 @@ export interface RestaurantProfile {
     autoSendReviewPrompt: boolean;
     reviewPromptDelayMinutes: number;
   };
+  deliveryPartners?: DeliveryPartnerConfig[];
 }
 
 export interface Category {
@@ -177,6 +193,15 @@ export interface Order {
   status: OrderStatus;
   createdAt: string;
   updatedAt: string;
+
+  // Delivery Partner Integration Fields
+  deliveryPartner?: DeliveryPartner;
+  partnerOrderId?: string; // e.g. "ZOM-8821" or "SWG-4512"
+  partnerPickupCode?: string; // e.g. "4821"
+  partnerCommissionPercent?: number; // e.g. 18%
+  partnerCommissionAmount?: number;
+  partnerNetPayout?: number;
+  partnerOrderStatus?: 'placed' | 'accepted' | 'preparing' | 'food_ready' | 'picked_up' | 'delivered' | 'cancelled';
 }
 
 export interface SplitPaymentEntry {
@@ -196,6 +221,7 @@ export interface CustomerProfile {
   favoriteItems: string[];
   lastVisit: string;
   notes?: string;
+  channel?: DeliveryPartner;
 }
 
 export interface TableReservation {
@@ -250,6 +276,14 @@ export interface Bill {
   pointsRedeemed?: number;
   status: 'paid' | 'unpaid';
   createdAt: string;
+
+  // Delivery Partner Settlement
+  deliveryPartner?: DeliveryPartner;
+  partnerOrderId?: string;
+  partnerPickupCode?: string;
+  partnerCommissionAmount?: number;
+  partnerNetPayout?: number;
+
   whatsappInvoiceSent: boolean;
   whatsappInvoiceTimestamp?: string;
   whatsappReviewSent: boolean;
