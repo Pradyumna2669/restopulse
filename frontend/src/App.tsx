@@ -35,6 +35,9 @@ import { ReportsAnalyticsView } from './views/ReportsAnalyticsView';
 import { RestaurantSettingsView } from './views/RestaurantSettingsView';
 import { InventoryRecipeView } from './views/InventoryRecipeView';
 import { CustomerCrmView } from './views/CustomerCrmView';
+import { DispatchRidersView } from './views/DispatchRidersView';
+import { ReservationsWaitlistView } from './views/ReservationsWaitlistView';
+import { CashRegisterView } from './views/CashRegisterView';
 
 // POS Components & Modals
 import { MenuGrid } from './components/MenuGrid';
@@ -45,9 +48,6 @@ import { PaymentModal } from './components/PaymentModal';
 import { ThermalReceiptModal } from './components/ThermalReceiptModal';
 import { CustomerOrderView } from './components/CustomerOrderView';
 import { KitchenDisplayView } from './components/KitchenDisplayView';
-import { DispatchBoardModal } from './components/DispatchBoardModal';
-import { CashRegisterModal } from './components/CashRegisterModal';
-import { ReservationModal } from './components/ReservationModal';
 import { AlertCircle } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -642,22 +642,20 @@ export const App: React.FC = () => {
             />
           )}
 
-          {/* H. Dispatch & Rider Management */}
+          {/* H. Dispatch & Rider Management (Full-Page View) */}
           {activeNavView === 'dispatch' && (
-            <DispatchBoardModal
+            <DispatchRidersView
               orders={orders}
               currencySymbol={profile.currencySymbol}
               onUpdateOrderStatus={handleUpdateOrderStatus}
-              onClose={() => setActiveNavView('overview')}
             />
           )}
 
-          {/* I. Reservations & Waitlist */}
+          {/* I. Reservations & Waitlist (Full-Page View) */}
           {activeNavView === 'reservations' && (
-            <ReservationModal
+            <ReservationsWaitlistView
               tables={tables}
               currencySymbol={profile.currencySymbol}
-              onClose={() => setActiveNavView('overview')}
               onSeatGuestAtTable={tableId => {
                 const dest = tables.find(t => t.id === tableId);
                 if (dest) {
@@ -669,12 +667,11 @@ export const App: React.FC = () => {
             />
           )}
 
-          {/* J. Cash Register & Shift Drawer */}
+          {/* J. Cash Register & Shift Drawer (Full-Page View) */}
           {activeNavView === 'cash-register' && (
-            <CashRegisterModal
+            <CashRegisterView
               profile={profile}
               currencySymbol={profile.currencySymbol}
-              onClose={() => setActiveNavView('overview')}
             />
           )}
 
