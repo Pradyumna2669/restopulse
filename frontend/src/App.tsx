@@ -33,6 +33,8 @@ import { MenuPricingView } from './views/MenuPricingView';
 import { FloorPlanTablesView } from './views/FloorPlanTablesView';
 import { ReportsAnalyticsView } from './views/ReportsAnalyticsView';
 import { RestaurantSettingsView } from './views/RestaurantSettingsView';
+import { InventoryRecipeView } from './views/InventoryRecipeView';
+import { CustomerCrmView } from './views/CustomerCrmView';
 
 // POS Components & Modals
 import { MenuGrid } from './components/MenuGrid';
@@ -44,9 +46,7 @@ import { ThermalReceiptModal } from './components/ThermalReceiptModal';
 import { CustomerOrderView } from './components/CustomerOrderView';
 import { KitchenDisplayView } from './components/KitchenDisplayView';
 import { DispatchBoardModal } from './components/DispatchBoardModal';
-import { InventoryManagerModal } from './components/InventoryManagerModal';
 import { CashRegisterModal } from './components/CashRegisterModal';
-import { CustomerCrmModal } from './components/CustomerCrmModal';
 import { ReservationModal } from './components/ReservationModal';
 import { AlertCircle } from 'lucide-react';
 
@@ -616,23 +616,19 @@ export const App: React.FC = () => {
             />
           )}
 
-          {/* E. Inventory & Recipe Costing */}
+          {/* E. Inventory & Recipe Costing (Full-Page View) */}
           {activeNavView === 'inventory' && (
-            <InventoryManagerModal
+            <InventoryRecipeView
               items={menuItems}
               currencySymbol={profile.currencySymbol}
-              onClose={() => {
-                refreshInventory();
-                setActiveNavView('overview');
-              }}
+              onInventoryUpdated={refreshInventory}
             />
           )}
 
-          {/* F. Customer CRM & Delivery Partners */}
+          {/* F. Customer CRM & Delivery Partners (Full-Page View) */}
           {activeNavView === 'customers' && (
-            <CustomerCrmModal
+            <CustomerCrmView
               currencySymbol={profile.currencySymbol}
-              onClose={() => setActiveNavView('overview')}
               onOrderSimulated={refreshOrders}
             />
           )}
