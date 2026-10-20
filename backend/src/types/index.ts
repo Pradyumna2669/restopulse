@@ -30,10 +30,16 @@ export interface DeliveryPartnerConfig {
   badgeBg: string;
 }
 
+export type BusinessType = 'cafe' | 'restaurant' | 'fine_dining' | 'bakery' | 'fast_food' | 'bar';
+
 export interface RestaurantProfile {
   id: string;
   name: string;
   tagline: string;
+  businessType?: BusinessType;
+  openingHours?: string;
+  isAcceptingOrders?: boolean;
+  enablePromotions?: boolean;
   address: string;
   phone: string;
   gstin: string;

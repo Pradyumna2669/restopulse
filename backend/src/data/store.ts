@@ -99,8 +99,12 @@ export const initialDeliveryPartners: DeliveryPartnerConfig[] = [
 
 const initialProfile: RestaurantProfile = {
   id: 'rest_01',
-  name: 'RestoPulse Grand Diner',
-  tagline: 'Authentic Flavours & Modern Hospitality',
+  name: 'The Daily Grind',
+  tagline: 'Good coffee. Slow mornings.',
+  businessType: 'cafe',
+  openingHours: '09:00 – 22:00',
+  isAcceptingOrders: true,
+  enablePromotions: true,
   address: 'Shop 14-16, Food District, Sector 18, City Hub',
   phone: '+91 98765 43210',
   gstin: '24AAAAA0000A1Z5',

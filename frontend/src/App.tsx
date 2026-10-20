@@ -11,7 +11,8 @@ import {
   Bill,
   PaymentMode,
   Order,
-  OrderStatus
+  OrderStatus,
+  SplitPaymentEntry
 } from './types';
 import {
   fallbackProfile,
@@ -21,18 +22,26 @@ import {
   fallbackOrders
 } from './data/fallbackData';
 import { ApiService } from './services/api';
-import { Header } from './components/Header';
+
+// Shell & Navigation
+import { Sidebar, ActiveNavView } from './components/navigation/Sidebar';
+import { TopHeader } from './components/navigation/TopHeader';
+
+// Redesigned Views
+import { OverviewDashboardView } from './views/OverviewDashboardView';
+import { MenuPricingView } from './views/MenuPricingView';
+import { FloorPlanTablesView } from './views/FloorPlanTablesView';
+import { ReportsAnalyticsView } from './views/ReportsAnalyticsView';
+import { RestaurantSettingsView } from './views/RestaurantSettingsView';
+
+// POS Components & Modals
 import { MenuGrid } from './components/MenuGrid';
 import { Cart } from './components/Cart';
 import { TableSelectorModal } from './components/TableSelectorModal';
 import { VariationModal } from './components/VariationModal';
 import { PaymentModal } from './components/PaymentModal';
 import { ThermalReceiptModal } from './components/ThermalReceiptModal';
-import { SettingsModal } from './components/SettingsModal';
-import { ReportsAnalyticsModal } from './components/ReportsAnalyticsModal';
 import { CustomerOrderView } from './components/CustomerOrderView';
-import { AdminMenuManagerModal } from './components/AdminMenuManagerModal';
-import { AdminTableManagerModal } from './components/AdminTableManagerModal';
 import { KitchenDisplayView } from './components/KitchenDisplayView';
 import { DispatchBoardModal } from './components/DispatchBoardModal';
 import { InventoryManagerModal } from './components/InventoryManagerModal';
@@ -51,8 +60,10 @@ export const App: React.FC = () => {
   const [openwaOnline, setOpenwaOnline] = useState<boolean>(false);
   const [backendOnline, setBackendOnline] = useState<boolean>(true);
 
-  // Role / View Mode: 'admin' (Staff POS Terminal) vs 'customer' (Locked Table QR Order View) vs 'kds' (Kitchen Display)
+  // Role / View Mode: 'admin' (SaaS Shell) vs 'customer' (Locked Table QR Order View) vs 'kds' (Kitchen Display)
   const [viewMode, setViewMode] = useState<'admin' | 'customer' | 'kds'>('admin');
+  const [activeNavView, setActiveNavView] = useState<ActiveNavView>('overview');
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
   const [customerLockedTable, setCustomerLockedTable] = useState<RestaurantTable | null>(null);
   const [invalidQrToken, setInvalidQrToken] = useState<string | null>(null);
 
@@ -63,24 +74,15 @@ export const App: React.FC = () => {
   const [discount, setDiscount] = useState<number>(0);
   const [discountReason, setDiscountReason] = useState<string>('');
 
-  // Modals
+  // Transaction Modals
   const [isTableModalOpen, setIsTableModalOpen] = useState<boolean>(false);
   const [customizingItem, setCustomizingItem] = useState<MenuItem | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState<boolean>(false);
   const [activeBillForReceipt, setActiveBillForReceipt] = useState<Bill | null>(null);
-  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
-  const [isPastBillsOpen, setIsPastBillsOpen] = useState<boolean>(false);
-  const [isMenuManagerOpen, setIsMenuManagerOpen] = useState<boolean>(false);
-  const [isTableManagerOpen, setIsTableManagerOpen] = useState<boolean>(false);
-  const [isDispatchBoardOpen, setIsDispatchBoardOpen] = useState<boolean>(false);
-  const [isInventoryOpen, setIsInventoryOpen] = useState<boolean>(false);
-  const [isCashRegisterOpen, setIsCashRegisterOpen] = useState<boolean>(false);
-  const [isCrmOpen, setIsCrmOpen] = useState<boolean>(false);
-  const [isReservationsOpen, setIsReservationsOpen] = useState<boolean>(false);
+
+  // Stats Counters
   const [waitingGuestsCount, setWaitingGuestsCount] = useState<number>(0);
   const [lowStockCount, setLowStockCount] = useState<number>(0);
-
-
 
   const refreshMenu = async () => {
     try {
@@ -124,13 +126,31 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleUpdateProfile = async (updated: Partial<RestaurantProfile>) => {
+    try {
+      const result = await ApiService.updateProfile(updated);
+      setProfile(result);
+    } catch (err) {
+      console.warn('Backend update failed, updating local state:', err);
+      setProfile(prev => ({ ...prev, ...updated }));
+    }
+  };
+
+  const handleToggleItemStock = async (itemId: string) => {
+    try {
+      const updated = await ApiService.toggleItemStock(itemId);
+      setMenuItems(prev => prev.map(i => i.id === itemId ? updated : i));
+    } catch {
+      setMenuItems(prev => prev.map(i => i.id === itemId ? { ...i, inStock: !i.inStock } : i));
+    }
+  };
+
   // Immediate Check for URL Table Parameter
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const tableParam = urlParams.get('table');
 
     if (tableParam) {
-      // Try to match immediately against local tables
       const matched = fallbackTables.find(
         t => t.qrToken === tableParam || t.id === tableParam
       );
@@ -175,7 +195,6 @@ export const App: React.FC = () => {
         }
         setBackendOnline(true);
 
-        // Check URL again with fresh backend table data
         const urlParams = new URLSearchParams(window.location.search);
         const tableParam = urlParams.get('table');
         if (tableParam) {
@@ -189,19 +208,17 @@ export const App: React.FC = () => {
           }
         }
       } catch (err) {
-        console.warn('Backend server on port 5000 is not reachable yet, working in offline mode:', err);
+        console.warn('Backend server working in offline fallback mode:', err);
         setBackendOnline(false);
       }
     }
 
     syncWithBackend();
-
-    // Heartbeat every 20 seconds
     const interval = setInterval(() => syncWithBackend(), 20000);
     return () => clearInterval(interval);
   }, []);
 
-  // Handle adding item to cart (Admin POS)
+  // POS Handlers
   const handleSelectItem = (item: MenuItem) => {
     const hasOptions = (item.variations && item.variations.length > 0) || (item.addons && item.addons.length > 0);
     if (hasOptions) {
@@ -245,8 +262,8 @@ export const App: React.FC = () => {
   };
 
   const handleUpdateQuantity = (cartItemId: string, delta: number) => {
-    setCart(prev =>
-      prev
+    setCart(prev => {
+      return prev
         .map(i => {
           if (i.cartItemId === cartItemId) {
             const newQty = i.quantity + delta;
@@ -254,8 +271,8 @@ export const App: React.FC = () => {
           }
           return i;
         })
-        .filter(Boolean) as CartItem[]
-    );
+        .filter(Boolean) as CartItem[];
+    });
   };
 
   const handleRemoveItem = (cartItemId: string) => {
@@ -268,72 +285,32 @@ export const App: React.FC = () => {
     setDiscountReason('');
   };
 
-  const handleTransferTable = async (fromTableId: string, toTableId: string) => {
-    try {
-      const res = await ApiService.transferTable(fromTableId, toTableId);
-      setTables(res.tables);
-      if (selectedTable?.id === fromTableId && res.tables) {
-        const dest = res.tables.find(t => t.id === toTableId);
-        if (dest) setSelectedTable(dest);
-      }
-      await refreshOrders();
-    } catch (err: any) {
-      alert(err?.message || 'Failed to shift table');
-    }
-  };
-
-  const handleVacateTable = async (tableId: string) => {
-    try {
-      const res = await ApiService.vacateTable(tableId);
-      setTables(res.tables);
-      if (selectedTable?.id === tableId) {
-        const vacantTable = res.tables.find(t => t.id === tableId);
-        if (vacantTable) setSelectedTable(vacantTable);
-      }
-      await refreshOrders();
-    } catch (err: any) {
-      alert(err?.message || 'Failed to vacate table');
-    }
-  };
-
-  const handleUpdateOrderStatus = async (orderId: string, status: OrderStatus) => {
-    try {
-      await ApiService.updateOrderStatus(orderId, status);
-      await refreshOrders();
-    } catch (err: any) {
-      console.error('Failed to update order status:', err);
-    }
-  };
-
   const handlePrintKOT = async () => {
     if (cart.length === 0) return;
     try {
       const newOrder = await ApiService.createStaffOrder({
         type: orderType,
-        tableId: selectedTable?.id,
+        tableId: orderType === 'dine_in' ? selectedTable?.id : undefined,
         tableNumber: orderType === 'dine_in' ? selectedTable?.tableNumber : undefined,
+        customerName: orderType === 'dine_in' ? `Table ${selectedTable?.tableNumber}` : 'Counter Walk-in',
         items: cart
       });
 
-      if (newOrder) {
-        setOrders(prev => [newOrder, ...prev.filter(o => o.id !== newOrder.id)]);
-      }
-
-      if (selectedTable && orderType === 'dine_in') {
+      setOrders(prev => [newOrder, ...prev]);
+      if (orderType === 'dine_in' && selectedTable) {
         setTables(prev =>
-          prev.map(t => (t.id === selectedTable.id ? { ...t, status: 'running' } : t))
+          prev.map(t =>
+            t.id === selectedTable.id
+              ? { ...t, status: 'running', currentOrderId: newOrder.id }
+              : t
+          )
         );
       }
-
-      alert(
-        `🍳 KOT #${newOrder?.orderNumber || '001'} Sent to Kitchen & KDS!\n` +
-        `Mode: ${orderType === 'dine_in' ? selectedTable?.tableNumber : orderType.toUpperCase()}\n` +
-        `Items: ${cart.map(i => `${i.quantity}x ${i.name}`).join(', ')}\n` +
-        `Ticket is now live on the Kitchen Display Screen.`
-      );
-      handleClearCart();
-    } catch (err: any) {
-      alert('Failed to send KOT: ' + (err.message || 'Network error'));
+      setCart([]);
+      setDiscount(0);
+      setDiscountReason('');
+    } catch {
+      // Handled
     }
   };
 
@@ -344,21 +321,52 @@ export const App: React.FC = () => {
     riderName?: string;
     takeawayToken?: string;
     paymentMode: PaymentMode;
-    splitPayments?: { mode: 'cash' | 'upi' | 'card'; amount: number }[];
+    splitPayments?: SplitPaymentEntry[];
     pointsRedeemed?: number;
     sendWhatsApp: boolean;
-    sendReviewPrompt?: boolean;
+    sendReviewPrompt: boolean;
   }) => {
     try {
-      const newBill = await ApiService.createBill({
+      let activeOrder = orders.find(
+        o => o.tableId === selectedTable?.id && o.status !== 'settled'
+      );
+
+      if (!activeOrder && cart.length > 0) {
+        activeOrder = await ApiService.createStaffOrder({
+          type: orderType,
+          tableId: orderType === 'dine_in' ? selectedTable?.id : undefined,
+          tableNumber: orderType === 'dine_in' ? selectedTable?.tableNumber : undefined,
+          customerName: data.customerName || (orderType === 'dine_in' ? `Table ${selectedTable?.tableNumber}` : 'Counter Walk-in'),
+          customerPhone: data.customerPhone,
+          deliveryAddress: data.deliveryAddress,
+          takeawayToken: data.takeawayToken,
+          riderName: data.riderName,
+          items: cart
+        });
+      }
+
+      if (!activeOrder && cart.length === 0) return;
+
+      const itemsForBill: CartItem[] = cart.length > 0 ? cart : (activeOrder ? activeOrder.items.map(i => ({
+        cartItemId: `${i.menuItemId}_${i.selectedVariation?.id || 'base'}_${i.kotStatus || 'kot'}`,
+        menuItemId: i.menuItemId,
+        name: i.name,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        selectedVariation: i.selectedVariation,
+        selectedAddons: i.selectedAddons,
+        station: i.station
+      })) : []);
+
+      const createdBill = await ApiService.createBill({
         orderType,
         tableNumber: orderType === 'dine_in' ? selectedTable?.tableNumber : undefined,
         takeawayToken: data.takeawayToken,
-        customerName: data.customerName,
-        customerPhone: data.customerPhone,
+        customerName: data.customerName || activeOrder?.customerName,
+        customerPhone: data.customerPhone || activeOrder?.customerPhone,
         deliveryAddress: data.deliveryAddress,
         riderName: data.riderName,
-        items: cart,
+        items: itemsForBill,
         discountAmount: discount,
         discountReason: discountReason || undefined,
         paymentMode: data.paymentMode,
@@ -367,207 +375,327 @@ export const App: React.FC = () => {
         sendWhatsApp: data.sendWhatsApp
       });
 
-      handleClearCart();
-      setIsPaymentModalOpen(false);
-
-      const [updatedTables, updatedOrders] = await Promise.all([
-        ApiService.getTables(),
-        ApiService.getOrders()
-      ]);
-      setTables(updatedTables);
-      if (updatedOrders && updatedOrders.length > 0) {
-        setOrders(updatedOrders);
+      if (orderType === 'dine_in' && selectedTable) {
+        setTables(prev =>
+          prev.map(t =>
+            t.id === selectedTable.id
+              ? { ...t, status: 'vacant', currentOrderId: undefined }
+              : t
+          )
+        );
       }
 
-      setActiveBillForReceipt(newBill);
-    } catch {
-      // Local bill fallback if offline
-      const subtotal = cart.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
-      const taxable = Math.max(0, subtotal - discount);
-      const cgst = Number((taxable * 0.025).toFixed(2));
-      const sgst = Number((taxable * 0.025).toFixed(2));
-      const rawTotal = taxable + cgst + sgst;
-      const total = Math.round(rawTotal);
-      const roundOff = Number((total - rawTotal).toFixed(2));
+      if (activeOrder) {
+        setOrders(prev =>
+          prev.map(o => (o.id === activeOrder!.id ? { ...o, status: 'settled' } : o))
+        );
+      }
 
-      const localBill: Bill = {
-        id: 'bill_' + Date.now(),
-        invoiceNumber: 'INV-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000),
-        orderId: 'ord_' + Date.now(),
-        orderNumber: 'ORD-' + Math.floor(100 + Math.random() * 900),
-        orderType,
-        tableNumber: orderType === 'dine_in' ? selectedTable?.tableNumber : undefined,
-        takeawayToken: data.takeawayToken,
-        customerName: data.customerName,
-        customerPhone: data.customerPhone,
-        deliveryAddress: data.deliveryAddress,
-        riderName: data.riderName,
-        items: cart,
-        subtotal,
-        discountAmount: discount,
-        discountReason: discountReason || undefined,
-        cgstAmount: cgst,
-        sgstAmount: sgst,
-        roundOff,
-        total,
-        paymentMode: data.paymentMode,
-        status: 'paid',
-        createdAt: new Date().toISOString(),
-        whatsappInvoiceSent: false,
-        whatsappReviewSent: false
-      };
-
-      handleClearCart();
+      setCart([]);
+      setDiscount(0);
+      setDiscountReason('');
       setIsPaymentModalOpen(false);
-      setActiveBillForReceipt(localBill);
+      setActiveBillForReceipt(createdBill);
+    } catch (err) {
+      console.error('Failed to settle bill:', err);
     }
   };
 
-  // ========================================================
-  // INVALID QR TOKEN SCREEN (Friendly Customer Warning)
-  // ========================================================
-  if (invalidQrToken && !customerLockedTable) {
-    return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-950 text-white p-6 text-center select-none">
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-5">
-          <div className="w-16 h-16 bg-rose-500/20 text-rose-400 rounded-full flex items-center justify-center mx-auto ring-8 ring-rose-500/10">
-            <AlertCircle className="w-8 h-8" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-white">Invalid Table QR Code</h2>
-            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-              We could not find a table matching token <code className="text-brand-300 font-mono bg-slate-850 px-1 py-0.5 rounded">{invalidQrToken}</code>.
-            </p>
-            <p className="text-xs text-slate-500 mt-1">
-              Please scan the QR stand physically placed on your dining table.
-            </p>
-          </div>
+  const handleTransferTable = async (fromTableId: string, toTableId: string) => {
+    try {
+      await ApiService.transferTable(fromTableId, toTableId);
+      await refreshTables();
+      await refreshOrders();
+      const newActive = tables.find(t => t.id === toTableId);
+      if (newActive) setSelectedTable(newActive);
+    } catch (err) {
+      console.error('Failed to transfer table:', err);
+    }
+  };
 
-          <div className="pt-2">
+  const handleVacateTable = async (tableId: string) => {
+    try {
+      await ApiService.vacateTable(tableId);
+      await refreshTables();
+      await refreshOrders();
+    } catch (err) {
+      console.error('Failed to vacate table:', err);
+    }
+  };
+
+  const handleUpdateOrderStatus = async (orderId: string, status: OrderStatus) => {
+    try {
+      await ApiService.updateOrderStatus(orderId, status);
+      await refreshOrders();
+    } catch (err) {
+      console.error('Failed to update order status:', err);
+    }
+  };
+
+  // =========================================================================
+  // CUSTOMER LOCKED VIEW (TABLE QR ORDERING)
+  // =========================================================================
+  if (viewMode === 'customer') {
+    if (invalidQrToken) {
+      return (
+        <div className="min-h-screen bg-canvas-100 flex items-center justify-center p-4">
+          <div className="bg-white border border-canvas-border rounded-3xl p-8 max-w-md w-full shadow-card text-center space-y-4">
+            <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+              <AlertCircle className="w-8 h-8" />
+            </div>
+            <h2 className="text-xl font-bold text-stone-900">Invalid Table QR Code</h2>
+            <p className="text-xs text-stone-500">
+              The QR token <code className="bg-canvas-200 px-2 py-0.5 rounded font-mono text-stone-800">{invalidQrToken}</code> is expired or unrecognized. Please scan the QR code located on your dining table.
+            </p>
             <button
               onClick={() => {
-                window.location.href = '/';
+                setInvalidQrToken(null);
+                setViewMode('admin');
               }}
-              className="w-full bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold py-3 rounded-xl transition-colors"
+              className="mt-4 px-5 py-2.5 bg-stone-900 text-white rounded-full text-xs font-bold hover:bg-stone-800 transition-colors"
             >
-              Open Restaurant Main Page
+              Return to Staff POS
             </button>
           </div>
         </div>
-      </div>
-    );
+      );
+    }
+
+    if (customerLockedTable) {
+      return (
+        <CustomerOrderView
+          profile={profile}
+          table={customerLockedTable}
+          categories={categories}
+          items={menuItems}
+          onExitToAdmin={() => setViewMode('admin')}
+        />
+      );
+    }
   }
 
-  // ========================================================
-  // 1. CUSTOMER DASHBOARD (LOCKED TABLE QR SCAN & ORDER VIEW)
-  // ========================================================
-  if (viewMode === 'customer' && customerLockedTable) {
-    return (
-      <CustomerOrderView
-        profile={profile}
-        table={customerLockedTable}
-        categories={categories}
-        items={menuItems}
-        onExitToAdmin={() => {
-          window.history.pushState({}, '', '/');
-          setViewMode('admin');
-        }}
-      />
-    );
-  }
-
-  // ========================================================
-  // 2. KITCHEN DISPLAY SYSTEM (KDS)
-  // ========================================================
+  // =========================================================================
+  // KITCHEN DISPLAY VIEW (KDS)
+  // =========================================================================
   if (viewMode === 'kds') {
     return (
       <KitchenDisplayView
         profile={profile}
         orders={orders}
         onRefreshOrders={refreshOrders}
-        onExit={() => setViewMode('admin')}
+        onExit={() => {
+          setViewMode('admin');
+          setActiveNavView('overview');
+        }}
       />
     );
   }
 
-  // ========================================================
-  // 3. ADMIN / STAFF POS DASHBOARD
-  // ========================================================
+  // =========================================================================
+  // MAIN SAAS PLATFORM SHELL (DARK OLIVE SIDEBAR + WARM OFF-WHITE WORKSPACE)
+  // =========================================================================
   return (
-    <div className="h-screen w-screen flex flex-col bg-slate-900 overflow-hidden">
-      {/* Offline Mode Banner if backend is disconnected */}
-      {!backendOnline && (
-        <div className="bg-amber-950/80 border-b border-amber-800/80 px-4 py-1.5 flex items-center justify-between text-xs text-amber-300">
-          <span className="flex items-center space-x-2">
-            <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span>
-              <strong>Local Offline Mode Active:</strong> Core backend API on port 5000 is offline. Transactions and menu are served from local cache.
-            </span>
-          </span>
-          <span className="text-[10px] text-amber-400/80 font-mono">
-            Run: cd backend && npm run dev
-          </span>
-        </div>
-      )}
-
-      {/* Top Header */}
-      <Header
+    <div className="flex h-screen w-screen overflow-hidden bg-canvas-100 font-sans text-stone-900 select-none">
+      {/* 1. Left Dark Olive Navigation Sidebar matching screenshot */}
+      <Sidebar
         profile={profile}
-        orderType={orderType}
-        setOrderType={setOrderType}
-        selectedTableNumber={orderType === 'dine_in' ? selectedTable?.tableNumber : undefined}
-        onOpenTableModal={() => setIsTableModalOpen(true)}
-        openwaOnline={openwaOnline}
-        activeOrderCount={orders.filter(o => ['kot_printed', 'preparing', 'ready'].includes(o.status)).length}
-        activeDispatchCount={orders.filter(o => (o.type === 'takeaway' || o.type === 'delivery') && o.status !== 'settled' && o.status !== 'cancelled').length}
-        aggregatorOrderCount={orders.filter(o => o.deliveryPartner && o.deliveryPartner !== 'direct' && o.status !== 'settled' && o.status !== 'cancelled').length}
-        lowStockCount={lowStockCount}
-        onOpenKds={() => setViewMode('kds')}
-        onOpenDispatchBoard={() => setIsDispatchBoardOpen(true)}
-        onOpenInventory={() => setIsInventoryOpen(true)}
-        onOpenCashRegister={() => setIsCashRegisterOpen(true)}
-        onOpenCrm={() => setIsCrmOpen(true)}
-        onOpenReservations={() => setIsReservationsOpen(true)}
-        waitingGuestsCount={waitingGuestsCount}
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenBills={() => setIsPastBillsOpen(true)}
-        onOpenMenuManager={() => setIsMenuManagerOpen(true)}
-        onOpenTableManager={() => setIsTableManagerOpen(true)}
-        onSwitchToCustomerView={() => {
-          if (tables.length > 0) {
-            setCustomerLockedTable(selectedTable || tables[0]);
-            setViewMode('customer');
+        activeView={activeNavView}
+        onNavigate={view => {
+          if (view === 'kds') {
+            setViewMode('kds');
+          } else {
+            setViewMode('admin');
+            setActiveNavView(view);
           }
         }}
+        onOpenCustomerView={() => {
+          setCustomerLockedTable(selectedTable || tables[0]);
+          setViewMode('customer');
+        }}
+        activeOrderCount={orders.filter(o => ['kot_printed', 'preparing', 'ready'].includes(o.status)).length}
+        activeDispatchCount={orders.filter(o => (o.type === 'takeaway' || o.type === 'delivery') && o.status !== 'settled' && o.status !== 'cancelled').length}
+        lowStockCount={lowStockCount}
+        waitingGuestsCount={waitingGuestsCount}
+        isOpenMobile={isMobileSidebarOpen}
+        onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        openwaOnline={openwaOnline}
       />
 
-      {/* Main POS Interface (Menu Grid + Running Cart) */}
-      <div className="flex-1 flex overflow-hidden">
-        <MenuGrid
-          categories={categories}
-          items={menuItems}
-          currencySymbol={profile.currencySymbol}
-          onSelectItem={handleSelectItem}
+      {/* 2. Main Workspace Layout */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden bg-canvas-100">
+        {/* Offline notice if backend is down */}
+        {!backendOnline && (
+          <div className="bg-amber-50 border-b border-amber-200 px-4 py-1.5 flex items-center justify-between text-xs text-amber-800">
+            <span className="flex items-center space-x-2">
+              <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span>
+                <strong>Offline Cache Active:</strong> Core backend API is initializing. Data served from resilient local storage.
+              </span>
+            </span>
+            <span className="text-[10px] text-amber-700 font-mono">
+              Port: 5000
+            </span>
+          </div>
+        )}
+
+        {/* Top Header matching screenshot */}
+        <TopHeader
+          profile={profile}
+          activeView={activeNavView}
+          onOpenMobileMenu={() => setIsMobileSidebarOpen(true)}
+          onQuickPos={() => setActiveNavView('pos')}
+          onOpenSettings={() => setActiveNavView('settings')}
+          isAcceptingOrders={profile.isAcceptingOrders !== undefined ? profile.isAcceptingOrders : true}
         />
 
-        <Cart
-          items={cart}
-          orderType={orderType}
-          tableNumber={orderType === 'dine_in' ? selectedTable?.tableNumber : undefined}
-          currencySymbol={profile.currencySymbol}
-          discount={discount}
-          setDiscount={setDiscount}
-          discountReason={discountReason}
-          setDiscountReason={setDiscountReason}
-          onUpdateQuantity={handleUpdateQuantity}
-          onRemoveItem={handleRemoveItem}
-          onClearCart={handleClearCart}
-          onPrintKOT={handlePrintKOT}
-          onOpenCheckout={() => setIsPaymentModalOpen(true)}
-        />
+        {/* Dynamic View Router */}
+        <main className="flex-1 overflow-y-auto">
+          {/* A. Overview Dashboard matching screenshot */}
+          {activeNavView === 'overview' && (
+            <OverviewDashboardView
+              profile={profile}
+              menuItems={menuItems}
+              tables={tables}
+              orders={orders}
+              onNavigate={setActiveNavView}
+              onUpdateProfile={handleUpdateProfile}
+              onToggleItemStock={handleToggleItemStock}
+              onOpenSettings={() => setActiveNavView('settings')}
+            />
+          )}
+
+          {/* B. Menu Management & Pricing */}
+          {activeNavView === 'menu' && (
+            <MenuPricingView
+              categories={categories}
+              items={menuItems}
+              currencySymbol={profile.currencySymbol}
+              onRefreshMenu={refreshMenu}
+            />
+          )}
+
+          {/* C. Staff POS & Billing Terminal */}
+          {activeNavView === 'pos' && (
+            <div className="flex h-full overflow-hidden">
+              <MenuGrid
+                categories={categories}
+                items={menuItems}
+                currencySymbol={profile.currencySymbol}
+                onSelectItem={handleSelectItem}
+              />
+              <Cart
+                items={cart}
+                orderType={orderType}
+                tableNumber={orderType === 'dine_in' ? selectedTable?.tableNumber : undefined}
+                currencySymbol={profile.currencySymbol}
+                discount={discount}
+                setDiscount={setDiscount}
+                discountReason={discountReason}
+                setDiscountReason={setDiscountReason}
+                onUpdateQuantity={handleUpdateQuantity}
+                onRemoveItem={handleRemoveItem}
+                onClearCart={handleClearCart}
+                onPrintKOT={handlePrintKOT}
+                onOpenCheckout={() => setIsPaymentModalOpen(true)}
+              />
+            </div>
+          )}
+
+          {/* D. Tables & Floor Plan */}
+          {activeNavView === 'tables' && (
+            <FloorPlanTablesView
+              tables={tables}
+              profile={profile}
+              onRefreshTables={refreshTables}
+              onOpenCustomerViewForTable={table => {
+                setCustomerLockedTable(table);
+                setViewMode('customer');
+              }}
+              onTransferTable={handleTransferTable}
+              onVacateTable={handleVacateTable}
+            />
+          )}
+
+          {/* E. Inventory & Recipe Costing */}
+          {activeNavView === 'inventory' && (
+            <InventoryManagerModal
+              items={menuItems}
+              currencySymbol={profile.currencySymbol}
+              onClose={() => {
+                refreshInventory();
+                setActiveNavView('overview');
+              }}
+            />
+          )}
+
+          {/* F. Customer CRM & Delivery Partners */}
+          {activeNavView === 'customers' && (
+            <CustomerCrmModal
+              currencySymbol={profile.currencySymbol}
+              onClose={() => setActiveNavView('overview')}
+              onOrderSimulated={refreshOrders}
+            />
+          )}
+
+          {/* G. Reports, Taxes & Day-End (EOD) */}
+          {activeNavView === 'reports' && (
+            <ReportsAnalyticsView
+              profile={profile}
+              currencySymbol={profile.currencySymbol}
+              onSelectBillForView={bill => setActiveBillForReceipt(bill)}
+            />
+          )}
+
+          {/* H. Dispatch & Rider Management */}
+          {activeNavView === 'dispatch' && (
+            <DispatchBoardModal
+              orders={orders}
+              currencySymbol={profile.currencySymbol}
+              onUpdateOrderStatus={handleUpdateOrderStatus}
+              onClose={() => setActiveNavView('overview')}
+            />
+          )}
+
+          {/* I. Reservations & Waitlist */}
+          {activeNavView === 'reservations' && (
+            <ReservationModal
+              tables={tables}
+              currencySymbol={profile.currencySymbol}
+              onClose={() => setActiveNavView('overview')}
+              onSeatGuestAtTable={tableId => {
+                const dest = tables.find(t => t.id === tableId);
+                if (dest) {
+                  setSelectedTable(dest);
+                  setOrderType('dine_in');
+                  setActiveNavView('pos');
+                }
+              }}
+            />
+          )}
+
+          {/* J. Cash Register & Shift Drawer */}
+          {activeNavView === 'cash-register' && (
+            <CashRegisterModal
+              profile={profile}
+              currencySymbol={profile.currencySymbol}
+              onClose={() => setActiveNavView('overview')}
+            />
+          )}
+
+          {/* K. Restaurant / Café Settings */}
+          {activeNavView === 'settings' && (
+            <RestaurantSettingsView
+              profile={profile}
+              onUpdateProfile={handleUpdateProfile}
+              openwaOnline={openwaOnline}
+            />
+          )}
+        </main>
       </div>
 
-      {/* Table Selector & Floor Plan Modal */}
+      {/* ========================================================================= */}
+      {/* TRANSACTION OVERLAYS (Variation, Split Payment & Thermal Receipt) */}
+      {/* ========================================================================= */}
       {isTableModalOpen && (
         <TableSelectorModal
           tables={tables}
@@ -584,17 +712,6 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Takeaway & Rider Dispatch Board Modal */}
-      {isDispatchBoardOpen && (
-        <DispatchBoardModal
-          orders={orders}
-          currencySymbol={profile.currencySymbol}
-          onUpdateOrderStatus={handleUpdateOrderStatus}
-          onClose={() => setIsDispatchBoardOpen(false)}
-        />
-      )}
-
-      {/* Item Variation / Addons Modal */}
       {customizingItem && (
         <VariationModal
           item={customizingItem}
@@ -604,7 +721,6 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Checkout / Payment Modal */}
       {isPaymentModalOpen && (
         <PaymentModal
           total={Math.round(
@@ -620,7 +736,6 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Thermal Receipt Print & WhatsApp Modal */}
       {activeBillForReceipt && (
         <ThermalReceiptModal
           bill={activeBillForReceipt}
@@ -629,99 +744,8 @@ export const App: React.FC = () => {
           onRefreshBill={updated => setActiveBillForReceipt(updated)}
         />
       )}
-
-      {/* Settings Modal (Feature Flags & Config) */}
-      {isSettingsOpen && (
-        <SettingsModal
-          profile={profile}
-          onUpdateProfile={setProfile}
-          onClose={() => setIsSettingsOpen(false)}
-        />
-      )}
-
-      {/* Reports, Analytics & Day-End (EOD) Modal */}
-      {isPastBillsOpen && (
-        <ReportsAnalyticsModal
-          profile={profile}
-          currencySymbol={profile.currencySymbol}
-          onSelectBillForView={bill => setActiveBillForReceipt(bill)}
-          onClose={() => setIsPastBillsOpen(false)}
-        />
-      )}
-
-      {/* Admin Menu & Dish Manager Modal */}
-      {isMenuManagerOpen && (
-        <AdminMenuManagerModal
-          categories={categories}
-          items={menuItems}
-          currencySymbol={profile.currencySymbol}
-          onRefreshMenu={refreshMenu}
-          onClose={() => setIsMenuManagerOpen(false)}
-        />
-      )}
-
-      {/* Admin Table & QR Manager Modal */}
-      {isTableManagerOpen && (
-        <AdminTableManagerModal
-          tables={tables}
-          profile={profile}
-          onRefreshTables={refreshTables}
-          onOpenCustomerViewForTable={table => {
-            setCustomerLockedTable(table);
-            setViewMode('customer');
-            setIsTableManagerOpen(false);
-          }}
-          onClose={() => setIsTableManagerOpen(false)}
-        />
-      )}
-
-      {/* Inventory & Recipe Costing Modal */}
-      {isInventoryOpen && (
-        <InventoryManagerModal
-          items={menuItems}
-          currencySymbol={profile.currencySymbol}
-          onClose={() => {
-            setIsInventoryOpen(false);
-            refreshInventory();
-          }}
-        />
-      )}
-
-      {/* Cash Register & Shift Drawer Modal */}
-      {isCashRegisterOpen && (
-        <CashRegisterModal
-          profile={profile}
-          currencySymbol={profile.currencySymbol}
-          onClose={() => setIsCashRegisterOpen(false)}
-        />
-      )}
-
-      {/* Customer CRM & Loyalty Points Modal */}
-      {isCrmOpen && (
-        <CustomerCrmModal
-          currencySymbol={profile.currencySymbol}
-          onClose={() => setIsCrmOpen(false)}
-          onOrderSimulated={refreshOrders}
-        />
-      )}
-
-      {/* Table Reservations & Live Waitlist Modal */}
-      {isReservationsOpen && (
-        <ReservationModal
-          tables={tables}
-          currencySymbol={profile.currencySymbol}
-          onClose={() => setIsReservationsOpen(false)}
-          onSeatGuestAtTable={tableId => {
-            const dest = tables.find(t => t.id === tableId);
-            if (dest) {
-              setSelectedTable(dest);
-              setOrderType('dine_in');
-              setIsReservationsOpen(false);
-            }
-          }}
-        />
-      )}
     </div>
   );
 };
+
 export default App;
