@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Order, OrderStatus, KitchenStation, RestaurantProfile } from '../types';
+import { Order, OrderStatus, KitchenStation, RestaurantProfile, CourseType, WaiterCallRequest, KdsPerformanceReport } from '../types';
 import { ApiService } from '../services/api';
 import {
   ChefHat,
@@ -17,7 +17,10 @@ import {
   Wine,
   Check,
   User,
-  Coffee
+  Coffee,
+  Bell,
+  Play,
+  Timer
 } from 'lucide-react';
 import { DeliveryPartnerBadge } from './DeliveryPartnerBadge';
 
@@ -40,6 +43,8 @@ export const KitchenDisplayView: React.FC<KitchenDisplayViewProps> = ({
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [printingKotOrder, setPrintingKotOrder] = useState<Order | null>(null);
+  const [kdsReport, setKdsReport] = useState<KdsPerformanceReport | null>(null);
+  const [waiterCalls, setWaiterCalls] = useState<WaiterCallRequest[]>([]);
 
   // Time ticker to update "X mins ago" every 10 seconds
   const [currentTime, setCurrentTime] = useState(Date.now());
@@ -56,12 +61,27 @@ export const KitchenDisplayView: React.FC<KitchenDisplayViewProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  // Polling for new orders every 5 seconds
+  // Polling for new orders, KDS report & waiter assistance every 5 seconds
   useEffect(() => {
+    const fetchAuxiliary = async () => {
+      try {
+        const [report, calls] = await Promise.all([
+          ApiService.getKdsPerformance().catch(() => null),
+          ApiService.getWaiterCalls('pending').catch(() => [])
+        ]);
+        if (report) setKdsReport(report);
+        if (calls) setWaiterCalls(calls);
+      } catch {}
+    };
+
+    fetchAuxiliary();
     if (!autoRefresh) return;
     const interval = setInterval(async () => {
       try {
-        const freshOrders = await ApiService.getOrders();
+        const [freshOrders] = await Promise.all([
+          ApiService.getOrders(),
+          fetchAuxiliary()
+        ]);
         if (freshOrders && freshOrders.length > 0) {
           // Play sound if new orders arrived
           if (freshOrders.length > prevOrderCountRef.current && soundEnabled) {
@@ -142,6 +162,37 @@ export const KitchenDisplayView: React.FC<KitchenDisplayViewProps> = ({
     }
   };
 
+  const handleFireCourse = async (orderId: string, course: CourseType) => {
+    try {
+      const res = await ApiService.fireCourse(orderId, course, 'Chef/KDS');
+      if (res && res.order) {
+        setOrders(prev => prev.map(o => (o.id === orderId ? res.order : o)));
+      }
+    } catch (err: any) {
+      console.error('Failed to fire course:', err);
+    }
+  };
+
+  const handleFireItem = async (orderId: string, itemId: string) => {
+    try {
+      const res = await ApiService.fireOrderItem(orderId, itemId, 'Chef/KDS');
+      if (res && res.order) {
+        setOrders(prev => prev.map(o => (o.id === orderId ? res.order : o)));
+      }
+    } catch (err: any) {
+      console.error('Failed to fire item:', err);
+    }
+  };
+
+  const handleResolveWaiterCall = async (callId: string) => {
+    try {
+      await ApiService.resolveWaiterCall(callId, 'Chef / Expediter');
+      setWaiterCalls(prev => prev.filter(c => c.id !== callId));
+    } catch (err: any) {
+      console.error('Failed to resolve waiter call:', err);
+    }
+  };
+
   // Filter orders according to station and status tab
   const filteredOrders = orders.filter(order => {
     // Filter by status
@@ -214,6 +265,16 @@ export const KitchenDisplayView: React.FC<KitchenDisplayViewProps> = ({
 
         {/* Live Metrics Ribbons */}
         <div className="flex items-center space-x-3 text-xs">
+          {kdsReport && (
+            <div className="bg-slate-850 border border-slate-700/80 px-3 py-1.5 rounded-xl hidden md:flex items-center space-x-2">
+              <span className="text-slate-400 flex items-center space-x-1">
+                <Timer className="w-3.5 h-3.5 text-brand-400" />
+                <span>Avg Prep:</span>
+              </span>
+              <span className="font-mono font-black text-white">{kdsReport.overallAvgPrepMinutes}m</span>
+            </div>
+          )}
+
           <div className="bg-slate-850 border border-slate-700/80 px-3 py-1.5 rounded-xl flex items-center space-x-2">
             <span className="text-slate-400">Active Tickets:</span>
             <span className="font-mono font-black text-brand-400 text-sm">{activeCount}</span>
@@ -222,7 +283,7 @@ export const KitchenDisplayView: React.FC<KitchenDisplayViewProps> = ({
           {urgentCount > 0 && (
             <div className="bg-rose-950/80 border border-rose-800 px-3 py-1.5 rounded-xl flex items-center space-x-1.5 text-rose-300 font-bold animate-pulse">
               <AlertTriangle className="w-4 h-4 text-rose-400" />
-              <span>{urgentCount} Delayed (&gt;12m)</span>
+              <span>{urgentCount} Delayed (&gt;15m)</span>
             </div>
           )}
 
@@ -253,6 +314,34 @@ export const KitchenDisplayView: React.FC<KitchenDisplayViewProps> = ({
           </div>
         </div>
       </header>
+
+      {/* Live Waiter Assistance Call Banner */}
+      {waiterCalls.length > 0 && (
+        <div className="bg-amber-950/80 border-b border-amber-600/60 px-6 py-2 flex items-center justify-between text-xs text-amber-200">
+          <div className="flex items-center space-x-2">
+            <span className="p-1 bg-amber-500/20 text-amber-300 rounded-lg animate-bounce">
+              <Bell className="w-4 h-4" />
+            </span>
+            <span className="font-bold">
+              {waiterCalls.length} Guest Assistance Call{waiterCalls.length > 1 ? 's' : ''}:
+            </span>
+            <div className="flex items-center space-x-2 flex-wrap gap-1">
+              {waiterCalls.map(c => (
+                <span key={c.id} className="bg-amber-900/60 border border-amber-700/60 px-2 py-0.5 rounded text-amber-300 text-[11px] font-mono flex items-center space-x-1.5">
+                  <span>Table {c.tableNumber} ({c.type})</span>
+                  <button
+                    onClick={() => handleResolveWaiterCall(c.id)}
+                    className="ml-1 text-emerald-400 hover:text-emerald-300 font-bold hover:underline"
+                  >
+                    ✓ Clear
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+          <span className="text-[10px] text-amber-400/80 font-semibold">Live Service Alert</span>
+        </div>
+      )}
 
       {/* Secondary Bar: Station Filters & Status Tabs */}
       <div className="bg-slate-900/80 border-b border-slate-800/80 px-6 py-2.5 flex flex-wrap items-center justify-between gap-3">
@@ -386,8 +475,9 @@ export const KitchenDisplayView: React.FC<KitchenDisplayViewProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredOrders.map(order => {
               const { mins, secs } = getElapsedTime(order.createdAt);
-              const isUrgent = mins >= 12;
-              const isWarning = mins >= 8 && mins < 12;
+              const isDelayed = mins >= 25;
+              const isUrgent = mins >= 15 && mins < 25;
+              const isWarning = mins >= 8 && mins < 15;
 
               // Items filtered for station if station is selected
               const visibleItems =
@@ -398,6 +488,7 @@ export const KitchenDisplayView: React.FC<KitchenDisplayViewProps> = ({
               if (visibleItems.length === 0) return null;
 
               const allItemsPrepared = visibleItems.every(i => i.kotStatus === 'prepared');
+              const hasHoldItems = visibleItems.some(i => i.courseStatus === 'hold');
 
               return (
                 <div
@@ -405,10 +496,12 @@ export const KitchenDisplayView: React.FC<KitchenDisplayViewProps> = ({
                   className={`rounded-2xl border flex flex-col overflow-hidden shadow-xl transition-all duration-300 ${
                     order.status === 'ready'
                       ? 'bg-slate-900 border-emerald-500/60 shadow-emerald-950/20'
+                      : isDelayed
+                      ? 'bg-slate-900 border-rose-500 ring-2 ring-rose-500/60 shadow-rose-950/40'
                       : isUrgent
-                      ? 'bg-slate-900 border-rose-500/70 shadow-rose-950/30'
+                      ? 'bg-slate-900 border-amber-500/80 shadow-amber-950/30'
                       : isWarning
-                      ? 'bg-slate-900 border-amber-500/60 shadow-amber-950/20'
+                      ? 'bg-slate-900 border-amber-600/50 shadow-amber-950/20'
                       : 'bg-slate-900 border-slate-700/80 hover:border-slate-600'
                   }`}
                 >
@@ -417,10 +510,12 @@ export const KitchenDisplayView: React.FC<KitchenDisplayViewProps> = ({
                     className={`px-4 py-3 border-b flex items-start justify-between ${
                       order.status === 'ready'
                         ? 'bg-emerald-950/40 border-emerald-500/30'
+                        : isDelayed
+                        ? 'bg-rose-950/70 border-rose-600/50'
                         : isUrgent
-                        ? 'bg-rose-950/40 border-rose-500/30'
+                        ? 'bg-amber-950/50 border-amber-600/40'
                         : isWarning
-                        ? 'bg-amber-950/40 border-amber-500/30'
+                        ? 'bg-amber-950/30 border-amber-600/30'
                         : 'bg-slate-850 border-slate-700/80'
                     }`}
                   >
@@ -472,10 +567,12 @@ export const KitchenDisplayView: React.FC<KitchenDisplayViewProps> = ({
                         className={`flex items-center space-x-1 px-2.5 py-1 rounded-xl text-xs font-black font-mono shadow-sm ${
                           order.status === 'ready'
                             ? 'bg-emerald-500 text-white'
-                            : isUrgent
+                            : isDelayed
                             ? 'bg-rose-600 text-white animate-pulse'
-                            : isWarning
+                            : isUrgent
                             ? 'bg-amber-600 text-white'
+                            : isWarning
+                            ? 'bg-amber-700/80 text-amber-100'
                             : 'bg-slate-800 text-slate-200 border border-slate-700'
                         }`}
                       >
@@ -486,31 +583,65 @@ export const KitchenDisplayView: React.FC<KitchenDisplayViewProps> = ({
                       </div>
 
                       <span className="text-[9px] uppercase font-bold text-slate-400 mt-1">
-                        {order.status === 'kot_printed'
+                        {order.status === 'ready'
+                          ? 'Food Ready'
+                          : isDelayed
+                          ? '🚨 Overdue (>25m)'
+                          : isUrgent
+                          ? '⚠️ Aging (>15m)'
+                          : order.status === 'kot_printed'
                           ? (allItemsPrepared ? 'Ready to Start' : 'New Ticket')
                           : order.status === 'preparing'
                           ? (allItemsPrepared ? 'All Items Checked' : 'In Prep')
-                          : order.status === 'ready'
-                          ? 'Food Ready'
                           : 'Served'}
                       </span>
                     </div>
                   </div>
 
+                  {/* Course Fire Action Bar if any items are on hold */}
+                  {hasHoldItems && (
+                    <div className="bg-amber-950/60 border-b border-amber-800/50 px-3 py-1.5 flex items-center justify-between text-[11px] gap-2 flex-wrap">
+                      <span className="text-amber-400 font-bold flex items-center space-x-1">
+                        <Flame className="w-3.5 h-3.5 text-orange-400" />
+                        <span>Courses on Hold:</span>
+                      </span>
+                      <div className="flex items-center space-x-1.5 flex-wrap gap-1">
+                        {(['appetizer', 'main', 'dessert', 'beverage'] as CourseType[]).map(c => {
+                          const hasHeldInCourse = visibleItems.some(i => i.course === c && i.courseStatus === 'hold');
+                          if (!hasHeldInCourse) return null;
+                          return (
+                            <button
+                              key={c}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleFireCourse(order.id, c);
+                              }}
+                              className="px-2 py-0.5 rounded bg-orange-600 hover:bg-orange-500 text-white font-bold text-[10px] flex items-center space-x-1 shadow transition-all"
+                            >
+                              <Play className="w-2.5 h-2.5" />
+                              <span className="capitalize">Fire {c}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Items List */}
                   <div className="p-3.5 flex-1 space-y-2.5 divide-y divide-slate-800/80">
                     {visibleItems.map(item => {
                       const isPrepared = item.kotStatus === 'prepared';
+                      const isHeld = item.courseStatus === 'hold';
 
                       return (
                         <div
                           key={item.id}
-                          onClick={() => handleToggleItemPrepared(order.id, item.id, item.kotStatus)}
-                          className={`pt-2.5 first:pt-0 flex items-start space-x-2.5 cursor-pointer group transition-all`}
+                          className={`pt-2.5 first:pt-0 flex items-start space-x-2.5 group transition-all`}
                         >
                           {/* Item Prepared Checkbox */}
                           <div
-                            className={`w-5 h-5 rounded-md border mt-0.5 flex items-center justify-center shrink-0 transition-colors ${
+                            onClick={() => handleToggleItemPrepared(order.id, item.id, item.kotStatus)}
+                            className={`w-5 h-5 rounded-md border mt-0.5 flex items-center justify-center shrink-0 cursor-pointer transition-colors ${
                               isPrepared
                                 ? 'bg-emerald-600 border-emerald-500 text-white'
                                 : 'border-slate-600 group-hover:border-slate-400 bg-slate-950'
@@ -520,8 +651,11 @@ export const KitchenDisplayView: React.FC<KitchenDisplayViewProps> = ({
                           </div>
 
                           {/* Item Details */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-baseline space-x-2">
+                          <div
+                            onClick={() => handleToggleItemPrepared(order.id, item.id, item.kotStatus)}
+                            className="flex-1 min-w-0 cursor-pointer"
+                          >
+                            <div className="flex items-baseline space-x-2 flex-wrap gap-y-1">
                               <span
                                 className={`text-sm font-black font-mono shrink-0 ${
                                   isPrepared ? 'text-slate-500 line-through' : 'text-amber-400'
@@ -536,6 +670,21 @@ export const KitchenDisplayView: React.FC<KitchenDisplayViewProps> = ({
                               >
                                 {item.name}
                               </span>
+                              {item.course && (
+                                <span className="text-[9px] px-1.5 py-0.2 rounded font-semibold bg-slate-800 text-slate-300 border border-slate-700 capitalize">
+                                  {item.course}
+                                </span>
+                              )}
+                              {item.seatNumber && (
+                                <span className="text-[9px] px-1.5 py-0.2 rounded font-semibold bg-blue-950 text-blue-300 border border-blue-800">
+                                  Seat {item.seatNumber}
+                                </span>
+                              )}
+                              {isHeld && (
+                                <span className="text-[9px] px-1.5 py-0.2 rounded font-bold bg-amber-950 text-amber-400 border border-amber-700 animate-pulse">
+                                  HOLD
+                                </span>
+                              )}
                             </div>
 
                             {/* Variation / Addon */}
@@ -553,6 +702,21 @@ export const KitchenDisplayView: React.FC<KitchenDisplayViewProps> = ({
                               </div>
                             )}
                           </div>
+
+                          {/* Fire Single Item button if held */}
+                          {isHeld && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleFireItem(order.id, item.id);
+                              }}
+                              className="px-2 py-1 rounded bg-orange-600 hover:bg-orange-500 text-white text-[10px] font-bold shrink-0 flex items-center space-x-1 transition-colors shadow"
+                              title="Fire this item into kitchen"
+                            >
+                              <Play className="w-2.5 h-2.5" />
+                              <span>Fire</span>
+                            </button>
+                          )}
 
                           {/* Station Tag */}
                           <span className="text-[9px] uppercase font-bold text-slate-500 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700/60 shrink-0">

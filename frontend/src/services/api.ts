@@ -16,7 +16,20 @@ import {
   TableReservation,
   GuestWaitlistEntry,
   DeliveryPartner,
-  DeliveryPartnerConfig
+  DeliveryPartnerConfig,
+  StaffUser,
+  AuditLog,
+  PaymentTransaction,
+  ReconciliationReport,
+  WebhookDeliveryLog,
+  Supplier,
+  PurchaseOrder,
+  WastageLog,
+  RecipeVarianceReport,
+  CourseType,
+  OrderItem,
+  WaiterCallRequest,
+  KdsPerformanceReport
 } from '../types';
 
 const API_BASE = '/api';
@@ -264,6 +277,65 @@ export const ApiService = {
     return res.json();
   },
 
+  async fireCourse(orderId: string, course: CourseType, waiterId?: string): Promise<{ success: boolean; firedItemsCount: number; order: Order }> {
+    const res = await fetchWithTimeout(`${API_BASE}/orders/${orderId}/courses/${course}/fire`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ waiterId })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to fire course');
+    }
+    return res.json();
+  },
+
+  async fireOrderItem(orderId: string, itemId: string, waiterId?: string): Promise<{ success: boolean; item: OrderItem; order: Order }> {
+    const res = await fetchWithTimeout(`${API_BASE}/orders/${orderId}/items/${itemId}/fire`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ waiterId })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to fire item');
+    }
+    return res.json();
+  },
+
+  async getKdsPerformance(): Promise<KdsPerformanceReport> {
+    const res = await fetchWithTimeout(`${API_BASE}/reports/kds-performance`);
+    if (!res.ok) throw new Error('Failed to fetch KDS performance metrics');
+    return res.json();
+  },
+
+  async getWaiterCalls(status?: 'pending' | 'acknowledged' | 'resolved'): Promise<WaiterCallRequest[]> {
+    const url = status ? `${API_BASE}/waiter-calls?status=${status}` : `${API_BASE}/waiter-calls`;
+    const res = await fetchWithTimeout(url);
+    if (!res.ok) return [];
+    return res.json();
+  },
+
+  async createWaiterCall(data: { tableId: string; tableNumber: string; type: string; message?: string }): Promise<WaiterCallRequest> {
+    const res = await fetchWithTimeout(`${API_BASE}/waiter-calls`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Failed to create waiter call');
+    return res.json();
+  },
+
+  async resolveWaiterCall(callId: string, resolvedBy?: string): Promise<{ success: boolean; call: WaiterCallRequest }> {
+    const res = await fetchWithTimeout(`${API_BASE}/waiter-calls/${callId}/resolve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resolvedBy })
+    });
+    if (!res.ok) throw new Error('Failed to resolve waiter call');
+    return res.json();
+  },
+
   // Billing APIs
   async getBills(): Promise<Bill[]> {
     try {
@@ -290,6 +362,10 @@ export const ApiService = {
     splitPayments?: { mode: 'cash' | 'upi' | 'card'; amount: number }[];
     pointsRedeemed?: number;
     sendWhatsApp: boolean;
+    createdBy?: { userId: string; userName: string; role: string };
+    managerApproval?: { userId: string; userName: string; role: string };
+    clientTxId?: string;
+    isOffline?: boolean;
   }): Promise<Bill> {
     const res = await fetchWithTimeout(`${API_BASE}/bills`, {
       method: 'POST',
@@ -401,6 +477,121 @@ export const ApiService = {
       body: JSON.stringify({ recipe })
     });
     return res.json();
+  },
+
+  // Procurement & Supplier Master APIs (Phase 4)
+  async getSuppliers(): Promise<Supplier[]> {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/inventory/suppliers`, {}, 2500);
+      if (!res.ok) return [];
+      return res.json();
+    } catch {
+      return [];
+    }
+  },
+
+  async createSupplier(data: Partial<Supplier>): Promise<Supplier> {
+    const res = await fetchWithTimeout(`${API_BASE}/inventory/suppliers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+
+  async updateSupplier(id: string, update: Partial<Supplier>): Promise<Supplier> {
+    const res = await fetchWithTimeout(`${API_BASE}/inventory/suppliers/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(update)
+    });
+    return res.json();
+  },
+
+  async deleteSupplier(id: string): Promise<{ success: boolean }> {
+    const res = await fetchWithTimeout(`${API_BASE}/inventory/suppliers/${id}`, {
+      method: 'DELETE'
+    });
+    return res.json();
+  },
+
+  // Purchase Order Workflow APIs (Phase 4)
+  async getPurchaseOrders(): Promise<PurchaseOrder[]> {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/inventory/purchase-orders`, {}, 2500);
+      if (!res.ok) return [];
+      return res.json();
+    } catch {
+      return [];
+    }
+  },
+
+  async createPurchaseOrder(data: {
+    supplierId: string;
+    items: { rawMaterialId: string; rawMaterialName: string; quantity: number; unit: string; unitCost: number }[];
+    notes?: string;
+    expectedDeliveryDate?: string;
+  }): Promise<PurchaseOrder> {
+    const res = await fetchWithTimeout(`${API_BASE}/inventory/purchase-orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+
+  async receivePurchaseOrder(id: string, receivedBy?: string): Promise<{ success: boolean; po?: PurchaseOrder; error?: string }> {
+    const res = await fetchWithTimeout(`${API_BASE}/inventory/purchase-orders/${id}/receive`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ receivedBy })
+    });
+    return res.json();
+  },
+
+  async cancelPurchaseOrder(id: string): Promise<{ success: boolean; po?: PurchaseOrder; error?: string }> {
+    const res = await fetchWithTimeout(`${API_BASE}/inventory/purchase-orders/${id}/cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    return res.json();
+  },
+
+  // Wastage & Spoilage APIs (Phase 4)
+  async getWastageLogs(): Promise<WastageLog[]> {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/inventory/wastage`, {}, 2500);
+      if (!res.ok) return [];
+      return res.json();
+    } catch {
+      return [];
+    }
+  },
+
+  async logWastage(data: {
+    rawMaterialId: string;
+    quantity: number;
+    reason: string;
+    notes?: string;
+    loggedBy?: string;
+    managerPin?: string;
+  }): Promise<{ success: boolean; wastage?: WastageLog; error?: string }> {
+    const res = await fetchWithTimeout(`${API_BASE}/inventory/wastage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+
+  async getRecipeVarianceReport(): Promise<RecipeVarianceReport[]> {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/inventory/recipe-variance`, {}, 2500);
+      if (!res.ok) return [];
+      return res.json();
+    } catch {
+      return [];
+    }
   },
 
   // Cash Register APIs
@@ -594,5 +785,111 @@ export const ApiService = {
       body: JSON.stringify({ partnerStatus, riderStatus })
     });
     return res.json();
+  },
+
+  // Staff & Security APIs (Phase 1)
+  async getStaff(): Promise<StaffUser[]> {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/staff`);
+      if (!res.ok) return [];
+      return res.json();
+    } catch {
+      return [];
+    }
+  },
+
+  async loginStaff(pin?: string, username?: string): Promise<{ success: boolean; user?: StaffUser; error?: string }> {
+    const res = await fetchWithTimeout(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin, username })
+    });
+    return res.json();
+  },
+
+  async verifyManagerPin(pin: string): Promise<{ success: boolean; user?: StaffUser; error?: string }> {
+    const res = await fetchWithTimeout(`${API_BASE}/auth/verify-pin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin, requiredRoles: ['manager', 'owner'] })
+    });
+    return res.json();
+  },
+
+  async voidBill(id: string, voidedBy: any, reason: string, managerPin?: string): Promise<{ success: boolean; bill?: Bill; error?: string }> {
+    const res = await fetchWithTimeout(`${API_BASE}/bills/${id}/void`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ voidedBy, reason, managerPin })
+    });
+    return res.json();
+  },
+
+  async getAuditLogs(filter?: { entityType?: string; entityId?: string; role?: string; limit?: number }): Promise<AuditLog[]> {
+    const params = new URLSearchParams();
+    if (filter?.entityType) params.append('entityType', filter.entityType);
+    if (filter?.entityId) params.append('entityId', filter.entityId);
+    if (filter?.role) params.append('role', filter.role);
+    if (filter?.limit) params.append('limit', String(filter.limit));
+    const url = `${API_BASE}/audit-logs?${params.toString()}`;
+    const res = await fetchWithTimeout(url);
+    if (!res.ok) return [];
+    return res.json();
+  },
+
+  // Payment Gateway & Reconciliation APIs (Phase 3)
+  async initiatePayment(data: {
+    billId?: string;
+    orderId?: string;
+    amount: number;
+    provider?: string;
+    method?: string;
+    payerPhone?: string;
+    idempotencyKey?: string;
+  }): Promise<{ success: boolean; payment: PaymentTransaction }> {
+    const res = await fetchWithTimeout(`${API_BASE}/payments/initiate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+
+  async confirmPayment(id: string, providerTxId?: string): Promise<{ success: boolean; payment: PaymentTransaction }> {
+    const res = await fetchWithTimeout(`${API_BASE}/payments/${id}/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ providerTxId })
+    });
+    return res.json();
+  },
+
+  async refundPayment(id: string, amount: number, reason: string, managerPin: string): Promise<{ success: boolean; payment: PaymentTransaction }> {
+    const res = await fetchWithTimeout(`${API_BASE}/payments/${id}/refund`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount, reason, managerPin })
+    });
+    return res.json();
+  },
+
+  async getReconciliationReport(): Promise<ReconciliationReport | null> {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/reports/reconciliation`);
+      if (!res.ok) return null;
+      return res.json();
+    } catch {
+      return null;
+    }
+  },
+
+  async getWebhookLogs(limit = 50): Promise<WebhookDeliveryLog[]> {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/webhooks/logs?limit=${limit}`);
+      if (!res.ok) return [];
+      return res.json();
+    } catch {
+      return [];
+    }
   }
 };

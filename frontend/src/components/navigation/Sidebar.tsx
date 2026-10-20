@@ -15,7 +15,8 @@ import {
   Settings,
   Smartphone,
   X,
-  MessageCircle
+  MessageCircle,
+  Tv
 } from 'lucide-react';
 import { RestaurantProfile } from '../../types';
 
@@ -31,6 +32,7 @@ export type ActiveNavView =
   | 'dispatch'
   | 'reservations'
   | 'cash-register'
+  | 'waiter'
   | 'settings';
 
 interface SidebarProps {
@@ -45,6 +47,7 @@ interface SidebarProps {
   isOpenMobile: boolean;
   onCloseMobile: () => void;
   openwaOnline?: boolean;
+  onOpenTokenDisplay?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -58,7 +61,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   waitingGuestsCount = 0,
   isOpenMobile,
   onCloseMobile,
-  openwaOnline = false
+  openwaOnline = false,
+  onOpenTokenDisplay
 }) => {
   const isCafe = !profile.businessType || profile.businessType === 'cafe' || profile.businessType === 'bakery';
   const osLabel = isCafe ? 'CAFÉ OS' : 'RESTAURANT OS';
@@ -87,6 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     badgeColor?: string;
   }> = [
     { id: 'kds', label: 'Kitchen KDS', icon: ChefHat, badge: activeOrderCount, badgeColor: 'bg-sage-500 text-white' },
+    { id: 'waiter', label: 'Waiter Companion', icon: Smartphone },
     { id: 'dispatch', label: 'Dispatch & Riders', icon: Bike, badge: activeDispatchCount, badgeColor: 'bg-blue-500 text-white' },
     { id: 'reservations', label: 'Reservations', icon: Calendar, badge: waitingGuestsCount, badgeColor: 'bg-purple-500 text-white' },
     { id: 'cash-register', label: 'Cash Register', icon: Wallet }
@@ -253,6 +258,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   Live
                 </span>
               </button>
+
+              {onOpenTokenDisplay && (
+                <button
+                  onClick={onOpenTokenDisplay}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-olive-200 hover:text-white hover:bg-olive-850 transition-colors"
+                  title="Open Wall TV Order Pickup Token Display"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Tv className="w-4 h-4 text-amber-400" />
+                    <span>Pickup TV Screen</span>
+                  </div>
+                  <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-mono">
+                    TV
+                  </span>
+                </button>
+              )}
             </nav>
           </div>
         </div>

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Bill, RestaurantProfile } from '../types';
-import { X, Printer, MessageCircle, Star, CheckCircle, RefreshCw } from 'lucide-react';
+import { X, Printer, MessageCircle, Star, CheckCircle, RefreshCw, Download, Cpu } from 'lucide-react';
 import { ApiService } from '../services/api';
+import { EscPosClientService } from '../services/escpos.service';
 
 interface ThermalReceiptModalProps {
   bill: Bill;
@@ -16,11 +17,22 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
   onClose,
   onRefreshBill
 }) => {
-  const [resendingWA, setResendingWA] = React.useState(false);
-  const [resendingReview, setResendingReview] = React.useState(false);
+  const [resendingWA, setResendingWA] = useState(false);
+  const [resendingReview, setResendingReview] = useState(false);
+  const [paperWidth, setPaperWidth] = useState<'80mm' | '58mm'>('80mm');
+  const [kickDrawer, setKickDrawer] = useState<boolean>(true);
+  const [cutPaper, setCutPaper] = useState<boolean>(true);
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadEscPos = () => {
+    EscPosClientService.downloadRawEscPosFile(bill, profile, {
+      paperWidth,
+      kickDrawer,
+      cutPaper
+    });
   };
 
   const handleResendWhatsApp = async () => {
@@ -168,15 +180,88 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
             </div>
           </div>
 
-          {/* Right Action & WhatsApp Dashboard */}
+          {/* Right Action & ESC/POS & WhatsApp Dashboard */}
           <div className="space-y-4">
-            {/* Quick Print Button */}
+            {/* Native ESC/POS Thermal Printing Card (Phase 2) */}
+            <div className="bg-slate-900 border border-slate-700/80 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Cpu className="w-4 h-4 text-terracotta-400" />
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">ESC/POS Thermal Engine</span>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700">
+                  Ready
+                </span>
+              </div>
+
+              {/* Paper Width Selector */}
+              <div className="flex items-center gap-2 pt-1">
+                <span className="text-xs text-slate-400">Width:</span>
+                <button
+                  type="button"
+                  onClick={() => setPaperWidth('80mm')}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all ${
+                    paperWidth === '80mm'
+                      ? 'bg-terracotta-600 border-terracotta-500 text-white'
+                      : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  80mm Standard
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaperWidth('58mm')}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all ${
+                    paperWidth === '58mm'
+                      ? 'bg-terracotta-600 border-terracotta-500 text-white'
+                      : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  58mm Compact
+                </button>
+              </div>
+
+              {/* Drawer Kick & Paper Cut Toggles */}
+              <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={kickDrawer}
+                    onChange={e => setKickDrawer(e.target.checked)}
+                    className="rounded border-slate-700 text-terracotta-500"
+                  />
+                  <span>Kick Cash Drawer</span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={cutPaper}
+                    onChange={e => setCutPaper(e.target.checked)}
+                    className="rounded border-slate-700 text-terracotta-500"
+                  />
+                  <span>Auto Cut Paper</span>
+                </label>
+              </div>
+
+              {/* Download Raw ESC/POS Binary */}
+              <button
+                type="button"
+                onClick={handleDownloadEscPos}
+                className="w-full flex items-center justify-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 py-2.5 rounded-lg text-xs font-bold transition-all shadow-sm"
+                title="Download raw binary byte stream for USB/Network ESC/POS printers"
+              >
+                <Download className="w-3.5 h-3.5 text-terracotta-400" />
+                <span>Stream Raw ESC/POS ({paperWidth})</span>
+              </button>
+            </div>
+
+            {/* Browser Print Dialog Button */}
             <button
               onClick={handlePrint}
               className="w-full flex items-center justify-center space-x-2 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl border border-slate-600 transition-all shadow-md"
             >
               <Printer className="w-5 h-5 text-brand-400" />
-              <span>Print Physical Receipt (80mm)</span>
+              <span>Standard Browser Print</span>
             </button>
 
             {/* WhatsApp Invoice Status Card */}

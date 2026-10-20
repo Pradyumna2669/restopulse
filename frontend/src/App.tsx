@@ -12,7 +12,8 @@ import {
   PaymentMode,
   Order,
   OrderStatus,
-  SplitPaymentEntry
+  SplitPaymentEntry,
+  StaffUser
 } from './types';
 import {
   fallbackProfile,
@@ -38,6 +39,7 @@ import { CustomerCrmView } from './views/CustomerCrmView';
 import { DispatchRidersView } from './views/DispatchRidersView';
 import { ReservationsWaitlistView } from './views/ReservationsWaitlistView';
 import { CashRegisterView } from './views/CashRegisterView';
+import { WaiterCompanionView } from './views/WaiterCompanionView';
 
 // POS Components & Modals
 import { MenuGrid } from './components/MenuGrid';
@@ -46,9 +48,12 @@ import { TableSelectorModal } from './components/TableSelectorModal';
 import { VariationModal } from './components/VariationModal';
 import { PaymentModal } from './components/PaymentModal';
 import { ThermalReceiptModal } from './components/ThermalReceiptModal';
+import { StaffSwitchModal } from './components/modals/StaffSwitchModal';
 import { CustomerOrderView } from './components/CustomerOrderView';
 import { KitchenDisplayView } from './components/KitchenDisplayView';
-import { AlertCircle } from 'lucide-react';
+import { TokenDisplayView } from './views/TokenDisplayView';
+import { AlertCircle, WifiOff, RotateCw } from 'lucide-react';
+import { OfflineQueueService } from './services/offlineQueue.service';
 
 export const App: React.FC = () => {
   // Master Data State — Initialized with robust fallback so it NEVER buffers infinitely!
@@ -60,8 +65,13 @@ export const App: React.FC = () => {
   const [openwaOnline, setOpenwaOnline] = useState<boolean>(false);
   const [backendOnline, setBackendOnline] = useState<boolean>(true);
 
-  // Role / View Mode: 'admin' (SaaS Shell) vs 'customer' (Locked Table QR Order View) vs 'kds' (Kitchen Display)
-  const [viewMode, setViewMode] = useState<'admin' | 'customer' | 'kds'>('admin');
+  // Staff Role & Access Control State (Phase 1)
+  const [staffList, setStaffList] = useState<StaffUser[]>([]);
+  const [currentStaff, setCurrentStaff] = useState<StaffUser | null>(null);
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState<boolean>(false);
+
+  // Role / View Mode: 'admin' (SaaS Shell) vs 'customer' (Locked Table QR Order View) vs 'kds' (Kitchen Display) vs 'tokens' (Wall TV Screen)
+  const [viewMode, setViewMode] = useState<'admin' | 'customer' | 'kds' | 'tokens'>('admin');
   const [activeNavView, setActiveNavView] = useState<ActiveNavView>('overview');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
   const [customerLockedTable, setCustomerLockedTable] = useState<RestaurantTable | null>(null);
@@ -73,6 +83,80 @@ export const App: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [discount, setDiscount] = useState<number>(0);
   const [discountReason, setDiscountReason] = useState<string>('');
+
+  // Offline & Synchronization State (Phase 2)
+  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+  const [offlineQueueCount, setOfflineQueueCount] = useState<number>(OfflineQueueService.getPendingCount());
+  const [isSyncingOffline, setIsSyncingOffline] = useState<boolean>(false);
+
+  // Cart Persistence across Page Reloads (Phase 2)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('restopulse_active_cart');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.cart && parsed.cart.length > 0) {
+          setCart(parsed.cart);
+          if (parsed.orderType) setOrderType(parsed.orderType);
+          if (parsed.discount) setDiscount(parsed.discount);
+          if (parsed.discountReason) setDiscountReason(parsed.discountReason);
+        }
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (cart.length > 0) {
+        localStorage.setItem(
+          'restopulse_active_cart',
+          JSON.stringify({ cart, orderType, discount, discountReason, tableId: selectedTable?.id })
+        );
+      } else {
+        localStorage.removeItem('restopulse_active_cart');
+      }
+    } catch {}
+  }, [cart, orderType, discount, discountReason, selectedTable]);
+
+  // Online / Offline Auto-Sync Listeners (Phase 2)
+  useEffect(() => {
+    const handleOnline = async () => {
+      setIsOnline(true);
+      if (OfflineQueueService.getPendingCount() > 0) {
+        setIsSyncingOffline(true);
+        await OfflineQueueService.syncAll();
+        setOfflineQueueCount(OfflineQueueService.getPendingCount());
+        setIsSyncingOffline(false);
+        refreshOrders();
+      }
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    if (navigator.onLine && OfflineQueueService.getPendingCount() > 0) {
+      OfflineQueueService.syncAll().then(() => {
+        setOfflineQueueCount(OfflineQueueService.getPendingCount());
+      });
+    }
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const handleManualSyncOffline = async () => {
+    setIsSyncingOffline(true);
+    await OfflineQueueService.syncAll();
+    setOfflineQueueCount(OfflineQueueService.getPendingCount());
+    setIsSyncingOffline(false);
+    await refreshOrders();
+  };
+
 
   // Transaction Modals
   const [isTableModalOpen, setIsTableModalOpen] = useState<boolean>(false);
@@ -167,14 +251,15 @@ export const App: React.FC = () => {
   useEffect(() => {
     async function syncWithBackend() {
       try {
-        const [profData, menuData, tableData, waStatus, orderData, invData, waitData] = await Promise.all([
+        const [profData, menuData, tableData, waStatus, orderData, invData, waitData, staffData] = await Promise.all([
           ApiService.getProfile(),
           ApiService.getMenu(),
           ApiService.getTables(),
           ApiService.getOpenWAStatus(),
           ApiService.getOrders(),
           ApiService.getInventory(),
-          ApiService.getWaitlist()
+          ApiService.getWaitlist(),
+          ApiService.getStaff()
         ]);
 
         setProfile(profData);
@@ -182,6 +267,10 @@ export const App: React.FC = () => {
         setMenuItems(menuData.items);
         setTables(tableData);
         setOpenwaOnline(waStatus.online);
+        if (staffData && staffData.length > 0) {
+          setStaffList(staffData);
+          setCurrentStaff(prev => prev || staffData.find(s => s.role === 'cashier') || staffData[0]);
+        }
         if (orderData && orderData.length > 0) {
           setOrders(orderData);
         }
@@ -358,22 +447,76 @@ export const App: React.FC = () => {
         station: i.station
       })) : []);
 
-      const createdBill = await ApiService.createBill({
-        orderType,
-        tableNumber: orderType === 'dine_in' ? selectedTable?.tableNumber : undefined,
-        takeawayToken: data.takeawayToken,
-        customerName: data.customerName || activeOrder?.customerName,
-        customerPhone: data.customerPhone || activeOrder?.customerPhone,
-        deliveryAddress: data.deliveryAddress,
-        riderName: data.riderName,
-        items: itemsForBill,
-        discountAmount: discount,
-        discountReason: discountReason || undefined,
-        paymentMode: data.paymentMode,
-        splitPayments: data.splitPayments,
-        pointsRedeemed: data.pointsRedeemed,
-        sendWhatsApp: data.sendWhatsApp
-      });
+      let createdBill: Bill;
+      try {
+        createdBill = await ApiService.createBill({
+          orderType,
+          tableNumber: orderType === 'dine_in' ? selectedTable?.tableNumber : undefined,
+          takeawayToken: data.takeawayToken,
+          customerName: data.customerName || activeOrder?.customerName,
+          customerPhone: data.customerPhone || activeOrder?.customerPhone,
+          deliveryAddress: data.deliveryAddress,
+          riderName: data.riderName,
+          items: itemsForBill,
+          discountAmount: discount,
+          discountReason: discountReason || undefined,
+          paymentMode: data.paymentMode,
+          splitPayments: data.splitPayments,
+          pointsRedeemed: data.pointsRedeemed,
+          sendWhatsApp: data.sendWhatsApp,
+          createdBy: currentStaff ? { userId: currentStaff.id, userName: currentStaff.name, role: currentStaff.role } : undefined
+        });
+      } catch (networkErr) {
+        console.warn('Network offline or bill creation failed, queueing offline transaction:', networkErr);
+        const offlineItem = OfflineQueueService.enqueue('bill', {
+          orderType,
+          tableNumber: orderType === 'dine_in' ? selectedTable?.tableNumber : undefined,
+          takeawayToken: data.takeawayToken,
+          customerName: data.customerName || activeOrder?.customerName,
+          customerPhone: data.customerPhone || activeOrder?.customerPhone,
+          items: itemsForBill,
+          discountAmount: discount,
+          discountReason: discountReason || undefined,
+          paymentMode: data.paymentMode,
+          splitPayments: data.splitPayments,
+          pointsRedeemed: data.pointsRedeemed,
+          sendWhatsApp: false,
+          createdBy: currentStaff ? { userId: currentStaff.id, userName: currentStaff.name, role: currentStaff.role } : undefined
+        });
+
+        const subtotal = itemsForBill.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
+        const taxable = Math.max(0, subtotal - discount);
+        const cgst = Number((taxable * 0.025).toFixed(2));
+        const sgst = Number((taxable * 0.025).toFixed(2));
+        const total = Math.round(taxable + cgst + sgst);
+
+        createdBill = {
+          id: `offline_bill_${Date.now()}`,
+          invoiceNumber: `OFFLINE-${Date.now().toString().slice(-4)}`,
+          orderId: activeOrder?.id || `off_ord_${Date.now()}`,
+          orderNumber: 'OFFLINE',
+          orderType,
+          tableNumber: orderType === 'dine_in' ? selectedTable?.tableNumber : undefined,
+          items: itemsForBill,
+          subtotal,
+          discountAmount: discount,
+          discountReason,
+          cgstAmount: cgst,
+          sgstAmount: sgst,
+          roundOff: 0,
+          total,
+          paymentMode: data.paymentMode,
+          status: 'paid',
+          isOffline: true,
+          clientTxId: offlineItem.clientTxId,
+          createdAt: new Date().toISOString(),
+          whatsappInvoiceSent: false,
+          whatsappReviewSent: false
+        };
+
+        setOfflineQueueCount(OfflineQueueService.getPendingCount());
+      }
+
 
       if (orderType === 'dine_in' && selectedTable) {
         setTables(prev =>
@@ -492,6 +635,21 @@ export const App: React.FC = () => {
   }
 
   // =========================================================================
+  // PUBLIC ORDER TOKEN WALL DISPLAY (FOR QSR / TV SCREEN)
+  // =========================================================================
+  if (viewMode === 'tokens') {
+    return (
+      <TokenDisplayView
+        profile={profile}
+        onExit={() => {
+          setViewMode('admin');
+          setActiveNavView('overview');
+        }}
+      />
+    );
+  }
+
+  // =========================================================================
   // MAIN SAAS PLATFORM SHELL (DARK OLIVE SIDEBAR + WARM OFF-WHITE WORKSPACE)
   // =========================================================================
   return (
@@ -512,6 +670,7 @@ export const App: React.FC = () => {
           setCustomerLockedTable(selectedTable || tables[0]);
           setViewMode('customer');
         }}
+        onOpenTokenDisplay={() => setViewMode('tokens')}
         activeOrderCount={orders.filter(o => ['kot_printed', 'preparing', 'ready'].includes(o.status)).length}
         activeDispatchCount={orders.filter(o => (o.type === 'takeaway' || o.type === 'delivery') && o.status !== 'settled' && o.status !== 'cancelled').length}
         lowStockCount={lowStockCount}
@@ -538,6 +697,31 @@ export const App: React.FC = () => {
           </div>
         )}
 
+        {/* Phase 2: Offline Transaction Sync Notification Banner */}
+        {(!isOnline || offlineQueueCount > 0) && (
+          <div className="bg-stone-900 text-amber-300 text-xs px-6 py-2 flex items-center justify-between border-b border-stone-800 animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <WifiOff className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>
+                {!isOnline ? 'Network Disconnected (Offline Mode)' : 'Network Reconnected'} —{' '}
+                {offlineQueueCount > 0
+                  ? `${offlineQueueCount} local offline transaction(s) queued.`
+                  : 'Ready to sync.'}
+              </span>
+            </div>
+            {offlineQueueCount > 0 && (
+              <button
+                onClick={handleManualSyncOffline}
+                disabled={isSyncingOffline || !isOnline}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-terracotta-600 hover:bg-terracotta-700 disabled:opacity-50 text-white font-bold text-xs transition-all shadow-sm"
+              >
+                <RotateCw className={`w-3.5 h-3.5 ${isSyncingOffline ? 'animate-spin' : ''}`} />
+                <span>{isSyncingOffline ? 'Syncing...' : 'Sync Offline Orders'}</span>
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Top Header matching screenshot */}
         <TopHeader
           profile={profile}
@@ -546,6 +730,8 @@ export const App: React.FC = () => {
           onQuickPos={() => setActiveNavView('pos')}
           onOpenSettings={() => setActiveNavView('settings')}
           isAcceptingOrders={profile.isAcceptingOrders !== undefined ? profile.isAcceptingOrders : true}
+          currentStaff={currentStaff || undefined}
+          onSwitchStaff={() => setIsStaffModalOpen(true)}
         />
 
         {/* Dynamic View Router */}
@@ -675,7 +861,21 @@ export const App: React.FC = () => {
             />
           )}
 
-          {/* K. Restaurant / Café Settings */}
+          {/* K. Waiter Companion (Table-Side POS & Course Hold/Fire) */}
+          {activeNavView === 'waiter' && (
+            <WaiterCompanionView
+              profile={profile}
+              tables={tables}
+              categories={categories}
+              menuItems={menuItems}
+              currencySymbol={profile.currencySymbol}
+              onRefreshTables={refreshTables}
+              onRefreshOrders={refreshOrders}
+              activeStaffName={currentStaff?.name || 'Vikram (Waiter)'}
+            />
+          )}
+
+          {/* L. Restaurant / Café Settings */}
           {activeNavView === 'settings' && (
             <RestaurantSettingsView
               profile={profile}
@@ -737,6 +937,18 @@ export const App: React.FC = () => {
           onRefreshBill={updated => setActiveBillForReceipt(updated)}
         />
       )}
+
+      {/* Staff Profile Switcher & PIN Auth Modal (Phase 1 RBAC) */}
+      <StaffSwitchModal
+        isOpen={isStaffModalOpen}
+        onClose={() => setIsStaffModalOpen(false)}
+        staffList={staffList}
+        currentStaff={currentStaff || undefined}
+        onSelectStaff={user => {
+          setCurrentStaff(user);
+          setIsStaffModalOpen(false);
+        }}
+      />
     </div>
   );
 };

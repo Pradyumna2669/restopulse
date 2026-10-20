@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RawMaterial, StockInwardEntry, MenuItem, InventoryUnit } from '../types';
+import { RawMaterial, StockInwardEntry, MenuItem, InventoryUnit, Supplier, PurchaseOrder, WastageLog } from '../types';
 import { ApiService } from '../services/api';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -16,7 +16,14 @@ import {
   Trash2,
   Edit2,
   CheckCircle2,
-  Clock
+  Clock,
+  Truck,
+  AlertOctagon,
+  FileCheck,
+  Building2,
+  Package,
+  XCircle,
+  ShieldAlert
 } from 'lucide-react';
 
 interface InventoryRecipeViewProps {
@@ -30,11 +37,15 @@ export const InventoryRecipeView: React.FC<InventoryRecipeViewProps> = ({
   currencySymbol = '₹',
   onInventoryUpdated
 }) => {
-  const [activeTab, setActiveTab] = useState<'stock' | 'recipe' | 'inward_logs'>('stock');
+  const [activeTab, setActiveTab] = useState<'stock' | 'recipe' | 'procurement' | 'wastage' | 'inward_logs'>('stock');
   const [inventory, setInventory] = useState<RawMaterial[]>([]);
   const [inwardLogs, setInwardLogs] = useState<StockInwardEntry[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [wastageLogs, setWastageLogs] = useState<WastageLog[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [procurementStatusMsg, setProcurementStatusMsg] = useState<string | null>(null);
 
   // Quick Inward Modal State
   const [inwardItem, setInwardItem] = useState<RawMaterial | null>(null);
@@ -61,23 +72,195 @@ export const InventoryRecipeView: React.FC<InventoryRecipeViewProps> = ({
     costPerUnit: 100
   });
 
+  // Purchase Order Creation Modal State
+  const [isCreatingPo, setIsCreatingPo] = useState<boolean>(false);
+  const [poSupplierId, setPoSupplierId] = useState<string>('');
+  const [poNotes, setPoNotes] = useState<string>('');
+  const [poDeliveryDate, setPoDeliveryDate] = useState<string>('');
+  const [poItems, setPoItems] = useState<{
+    rawMaterialId: string;
+    quantity: number;
+    unit: InventoryUnit;
+    unitCost: number;
+  }[]>([]);
+
+  // Wastage Logging Modal State
+  const [isLoggingWastage, setIsLoggingWastage] = useState<boolean>(false);
+  const [wastageMaterialId, setWastageMaterialId] = useState<string>('');
+  const [wastageQty, setWastageQty] = useState<number>(1);
+  const [wastageReason, setWastageReason] = useState<'spoilage' | 'expired' | 'damaged' | 'prep_waste' | 'audit_discrepancy'>('spoilage');
+  const [wastageNotes, setWastageNotes] = useState<string>('');
+  const [wastageManagerPin, setWastageManagerPin] = useState<string>('');
+
+  // Add Supplier Modal State
+  const [isAddingSupplier, setIsAddingSupplier] = useState<boolean>(false);
+  const [supplierForm, setSupplierForm] = useState<{
+    name: string;
+    contactPerson: string;
+    phone: string;
+    email: string;
+    gstin: string;
+    address: string;
+    categoriesSupplied: string[];
+    paymentTerms: 'immediate' | 'net_7' | 'net_15' | 'net_30';
+  }>({
+    name: '',
+    contactPerson: '',
+    phone: '',
+    email: '',
+    gstin: '',
+    address: '',
+    categoriesSupplied: ['Grocery'],
+    paymentTerms: 'net_15'
+  });
+
   // Selected Dish for Recipe Mapping
   const [selectedDishId, setSelectedDishId] = useState<string>(items[0]?.id || '');
   const [recipeSearch, setRecipeSearch] = useState<string>('');
 
   const loadData = async () => {
     try {
-      const [invData, logData] = await Promise.all([
+      const [invData, logData, supData, poData, wstData] = await Promise.all([
         ApiService.getInventory(),
-        ApiService.getStockInwardLogs()
+        ApiService.getStockInwardLogs(),
+        ApiService.getSuppliers(),
+        ApiService.getPurchaseOrders(),
+        ApiService.getWastageLogs()
       ]);
       setInventory(invData);
       setInwardLogs(logData);
+      setSuppliers(supData);
+      setPurchaseOrders(poData);
+      setWastageLogs(wstData);
+      if (supData.length > 0 && !poSupplierId) {
+        setPoSupplierId(supData[0].id);
+      }
+      if (invData.length > 0 && !wastageMaterialId) {
+        setWastageMaterialId(invData[0].id);
+      }
       if (onInventoryUpdated) {
         onInventoryUpdated();
       }
     } catch (e) {
       console.error('Failed to load inventory data:', e);
+    }
+  };
+
+  const handleReceivePo = async (poId: string) => {
+    try {
+      const res = await ApiService.receivePurchaseOrder(poId, 'Store Manager');
+      if (res.success) {
+        setProcurementStatusMsg(`✓ PO received! Goods inwarded to raw materials stock successfully.`);
+        setTimeout(() => setProcurementStatusMsg(null), 4000);
+        await loadData();
+      } else {
+        alert(res.error || 'Failed to receive PO');
+      }
+    } catch (err) {
+      console.error('Receive PO error:', err);
+      alert('Error communicating with backend');
+    }
+  };
+
+  const handleCancelPo = async (poId: string) => {
+    if (!confirm('Are you sure you want to cancel this Purchase Order?')) return;
+    try {
+      const res = await ApiService.cancelPurchaseOrder(poId);
+      if (res.success) {
+        await loadData();
+      }
+    } catch (err) {
+      console.error('Cancel PO error:', err);
+    }
+  };
+
+  const handleCreatePo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!poSupplierId || poItems.length === 0) {
+      alert('Please select a supplier and add at least one material item');
+      return;
+    }
+    try {
+      const formatted = poItems.map(item => {
+        const mat = inventory.find(m => m.id === item.rawMaterialId);
+        return {
+          rawMaterialId: item.rawMaterialId,
+          rawMaterialName: mat ? mat.name : 'Item',
+          quantity: item.quantity,
+          unit: item.unit,
+          unitCost: item.unitCost
+        };
+      });
+
+      await ApiService.createPurchaseOrder({
+        supplierId: poSupplierId,
+        items: formatted,
+        notes: poNotes,
+        expectedDeliveryDate: poDeliveryDate || undefined
+      });
+
+      setIsCreatingPo(false);
+      setPoItems([]);
+      setPoNotes('');
+      setProcurementStatusMsg('✓ Purchase Order raised and sent to supplier successfully.');
+      setTimeout(() => setProcurementStatusMsg(null), 4000);
+      await loadData();
+    } catch (err) {
+      console.error('Create PO error:', err);
+      alert('Failed to create purchase order');
+    }
+  };
+
+  const handleLogWastage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!wastageMaterialId || wastageQty <= 0) return;
+
+    try {
+      const res = await ApiService.logWastage({
+        rawMaterialId: wastageMaterialId,
+        quantity: wastageQty,
+        reason: wastageReason,
+        notes: wastageNotes,
+        managerPin: wastageManagerPin || undefined,
+        loggedBy: 'Floor Staff'
+      });
+
+      if (res.success) {
+        setIsLoggingWastage(false);
+        setWastageQty(1);
+        setWastageNotes('');
+        setWastageManagerPin('');
+        await loadData();
+      } else {
+        alert(res.error || 'Failed to record wastage');
+      }
+    } catch (err) {
+      console.error('Log wastage error:', err);
+      alert('Error recording wastage log');
+    }
+  };
+
+  const handleCreateSupplier = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supplierForm.name || !supplierForm.phone) return;
+
+    try {
+      await ApiService.createSupplier(supplierForm);
+      setIsAddingSupplier(false);
+      setSupplierForm({
+        name: '',
+        contactPerson: '',
+        phone: '',
+        email: '',
+        gstin: '',
+        address: '',
+        categoriesSupplied: ['Grocery'],
+        paymentTerms: 'net_15'
+      });
+      await loadData();
+    } catch (err) {
+      console.error('Create supplier error:', err);
+      alert('Failed to save supplier profile');
     }
   };
 
@@ -264,6 +447,44 @@ export const InventoryRecipeView: React.FC<InventoryRecipeViewProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('procurement')}
+            className={`px-4 py-2 rounded-xl font-bold transition-all flex items-center space-x-2 shrink-0 ${
+              activeTab === 'procurement'
+                ? 'bg-stone-900 text-white shadow-sm'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-canvas-100'
+            }`}
+          >
+            <Truck className="w-4 h-4" />
+            <span>Procurement & POs</span>
+            <span
+              className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
+                activeTab === 'procurement' ? 'bg-stone-800 text-stone-200' : 'bg-canvas-200 text-stone-600'
+              }`}
+            >
+              {purchaseOrders.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('wastage')}
+            className={`px-4 py-2 rounded-xl font-bold transition-all flex items-center space-x-2 shrink-0 ${
+              activeTab === 'wastage'
+                ? 'bg-stone-900 text-white shadow-sm'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-canvas-100'
+            }`}
+          >
+            <AlertOctagon className="w-4 h-4" />
+            <span>Wastage & Spoilage</span>
+            <span
+              className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
+                activeTab === 'wastage' ? 'bg-stone-800 text-stone-200' : 'bg-canvas-200 text-stone-600'
+              }`}
+            >
+              {wastageLogs.length}
+            </span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('inward_logs')}
             className={`px-4 py-2 rounded-xl font-bold transition-all flex items-center space-x-2 shrink-0 ${
               activeTab === 'inward_logs'
@@ -283,7 +504,7 @@ export const InventoryRecipeView: React.FC<InventoryRecipeViewProps> = ({
           </button>
         </div>
 
-        {/* Action Button */}
+        {/* Action Buttons */}
         {activeTab === 'stock' && (
           <Button
             variant="primary"
@@ -302,6 +523,45 @@ export const InventoryRecipeView: React.FC<InventoryRecipeViewProps> = ({
           >
             <Plus className="w-4 h-4" />
             <span>Add Raw Material</span>
+          </Button>
+        )}
+
+        {activeTab === 'procurement' && (
+          <div className="flex items-center space-x-2 shrink-0">
+            <Button
+              variant="outline"
+              onClick={() => setIsAddingSupplier(true)}
+              className="flex items-center space-x-1.5 text-xs"
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              <span>+ Add Supplier</span>
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                if (inventory.length > 0) {
+                  setPoItems([
+                    { rawMaterialId: inventory[0].id, quantity: 10, unit: inventory[0].unit, unitCost: inventory[0].costPerUnit }
+                  ]);
+                }
+                setIsCreatingPo(true);
+              }}
+              className="flex items-center space-x-1.5 text-xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Create Purchase Order</span>
+            </Button>
+          </div>
+        )}
+
+        {activeTab === 'wastage' && (
+          <Button
+            variant="primary"
+            onClick={() => setIsLoggingWastage(true)}
+            className="flex items-center space-x-1.5 shrink-0 text-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Record Stock Wastage</span>
           </Button>
         )}
       </div>
@@ -621,6 +881,344 @@ export const InventoryRecipeView: React.FC<InventoryRecipeViewProps> = ({
         </div>
       )}
 
+      {/* Status banner */}
+      {procurementStatusMsg && (
+        <div className="bg-sage-50 border border-sage-300 px-4 py-3 rounded-2xl flex items-center justify-between text-xs text-sage-800 shadow-sm animate-fadeIn">
+          <div className="flex items-center space-x-2">
+            <CheckCircle2 className="w-4 h-4 text-sage-600" />
+            <span className="font-bold">{procurementStatusMsg}</span>
+          </div>
+          <button onClick={() => setProcurementStatusMsg(null)} className="text-sage-600 hover:text-sage-900">
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* TAB 3: PROCUREMENT & PURCHASE ORDERS (PHASE 4) */}
+      {/* ===================================================================== */}
+      {activeTab === 'procurement' && (
+        <div className="space-y-6">
+          {/* Procurement KPIs */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card className="flex items-center space-x-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-canvas-200 text-stone-800 flex items-center justify-center shrink-0">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[11px] font-semibold text-stone-500 uppercase tracking-wider block">
+                  Registered Suppliers
+                </span>
+                <span className="text-xl font-black text-stone-900 font-mono">
+                  {suppliers.length} Vendors
+                </span>
+              </div>
+            </Card>
+
+            <Card className="flex items-center space-x-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center shrink-0">
+                <Truck className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[11px] font-semibold text-stone-500 uppercase tracking-wider block">
+                  Open Purchase Orders
+                </span>
+                <span className="text-xl font-black text-amber-800 font-mono">
+                  {purchaseOrders.filter(p => p.status === 'ordered').length} Pending Delivery
+                </span>
+              </div>
+            </Card>
+
+            <Card className="flex items-center space-x-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-sage-50 text-sage-700 border border-sage-200 flex items-center justify-center shrink-0">
+                <FileCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[11px] font-semibold text-stone-500 uppercase tracking-wider block">
+                  Completed Deliveries
+                </span>
+                <span className="text-xl font-black text-sage-800 font-mono">
+                  {purchaseOrders.filter(p => p.status === 'received').length} Inwarded
+                </span>
+              </div>
+            </Card>
+          </div>
+
+          {/* Suppliers Master Directory */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-stone-900">Approved Vendor Directory</h3>
+                <p className="text-xs text-stone-500">Master supplier directory with credit terms and GSTIN</p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setIsAddingSupplier(true)}
+                className="flex items-center space-x-1.5 !text-xs !py-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Supplier</span>
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {suppliers.map(sup => (
+                <Card key={sup.id} className="space-y-2.5 hover:border-stone-400 transition-all">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold text-stone-900">{sup.name}</h4>
+                      <span className="text-[11px] text-stone-500 block">{sup.contactPerson}</span>
+                    </div>
+                    <Badge variant={sup.paymentTerms === 'immediate' ? 'neutral' : 'terracotta'}>
+                      {sup.paymentTerms.toUpperCase()}
+                    </Badge>
+                  </div>
+                  <div className="space-y-1 text-[11px] text-stone-600 font-mono">
+                    <div>📞 {sup.phone}</div>
+                    {sup.email && <div className="truncate">✉️ {sup.email}</div>}
+                    {sup.gstin && <div className="text-stone-400 text-[10px]">GSTIN: {sup.gstin}</div>}
+                  </div>
+                  <div className="pt-2 border-t border-canvas-border flex flex-wrap gap-1">
+                    {sup.categoriesSupplied.map(cat => (
+                      <span key={cat} className="px-1.5 py-0.5 rounded bg-canvas-200 text-stone-700 text-[10px]">
+                        {cat}
+                      </span>
+                    ))}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          {/* Purchase Orders Table */}
+          <Card className="p-0 overflow-hidden">
+            <div className="p-4 border-b border-canvas-border flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-bold text-stone-900">Purchase Orders Workflow</h4>
+                <p className="text-xs text-stone-500">Draft, order and 1-click inward goods to physical stock</p>
+              </div>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  if (inventory.length > 0) {
+                    setPoItems([
+                      { rawMaterialId: inventory[0].id, quantity: 10, unit: inventory[0].unit, unitCost: inventory[0].costPerUnit }
+                    ]);
+                  }
+                  setIsCreatingPo(true);
+                }}
+                className="flex items-center space-x-1.5 !text-xs !py-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Raise Purchase Order</span>
+              </Button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-canvas-100/60 text-stone-600 border-b border-canvas-border uppercase font-mono text-[10px]">
+                  <tr>
+                    <th className="py-3 px-4">PO Number</th>
+                    <th className="py-3 px-3">Supplier</th>
+                    <th className="py-3 px-3">Items Summary</th>
+                    <th className="py-3 px-3 text-right">Total Amount</th>
+                    <th className="py-3 px-3 text-center">Status</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-canvas-border">
+                  {purchaseOrders.map(po => (
+                    <tr key={po.id} className="hover:bg-canvas-50/70 transition-colors">
+                      <td className="py-3 px-4 font-mono font-bold text-stone-900">
+                        {po.poNumber}
+                        <span className="block text-[10px] text-stone-400 font-normal">
+                          {new Date(po.createdAt).toLocaleDateString()}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 font-semibold text-stone-800">{po.supplierName}</td>
+                      <td className="py-3 px-3 text-stone-600 text-[11px]">
+                        {po.items.map(i => `${i.rawMaterialName} (${i.quantity} ${i.unit})`).join(', ')}
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono font-bold text-stone-900">
+                        {currencySymbol}{po.totalAmount.toLocaleString('en-IN')}
+                      </td>
+                      <td className="py-3 px-3 text-center">
+                        {po.status === 'received' && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sage-50 text-sage-700 border border-sage-200">
+                            ✓ Inwarded
+                          </span>
+                        )}
+                        {po.status === 'ordered' && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                            ● In Transit
+                          </span>
+                        )}
+                        {po.status === 'cancelled' && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                            Cancelled
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        {po.status === 'ordered' && (
+                          <div className="flex items-center justify-end space-x-1.5">
+                            <Button
+                              variant="primary"
+                              onClick={() => handleReceivePo(po.id)}
+                              className="!py-1 !px-2.5 !text-[11px] flex items-center space-x-1"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Receive to Stock</span>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => handleCancelPo(po.id)}
+                              className="!py-1 !px-2 !text-[11px] text-rose-600 hover:bg-rose-50"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        )}
+                        {po.status === 'received' && (
+                          <span className="text-[10px] text-stone-400 font-mono">
+                            Received {new Date(po.receivedAt || '').toLocaleDateString()}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* TAB 4: SPOILAGE & WASTAGE LOGS (PHASE 4) */}
+      {/* ===================================================================== */}
+      {activeTab === 'wastage' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card className="flex items-center space-x-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-rose-50 text-rose-700 border border-rose-200 flex items-center justify-center shrink-0">
+                <AlertOctagon className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[11px] font-semibold text-stone-500 uppercase tracking-wider block">
+                  Total Wastage Cost
+                </span>
+                <span className="text-xl font-black text-rose-800 font-mono">
+                  {currencySymbol}
+                  {wastageLogs.reduce((sum, w) => sum + w.cost, 0).toLocaleString('en-IN')}
+                </span>
+              </div>
+            </Card>
+
+            <Card className="flex items-center space-x-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-canvas-200 text-stone-800 flex items-center justify-center shrink-0">
+                <Package className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[11px] font-semibold text-stone-500 uppercase tracking-wider block">
+                  Wastage Incidents
+                </span>
+                <span className="text-xl font-black text-stone-900 font-mono">
+                  {wastageLogs.length} Events Logged
+                </span>
+              </div>
+            </Card>
+
+            <Card className="flex items-center space-x-3.5 bg-amber-50/40 border-amber-200">
+              <div className="w-11 h-11 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                <ShieldAlert className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[11px] font-semibold text-amber-800 uppercase tracking-wider block">
+                  Manager Sign-off
+                </span>
+                <span className="text-xs text-amber-900 font-medium">
+                  Enforces PIN guard on spoilage adjustments
+                </span>
+              </div>
+            </Card>
+          </div>
+
+          <Card className="p-0 overflow-hidden">
+            <div className="p-4 border-b border-canvas-border flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-bold text-stone-900">Stock Wastage & Shrinkage Trail</h4>
+                <p className="text-xs text-stone-500">Mandatory logging of kitchen spoilage and expired inventory</p>
+              </div>
+              <Button
+                variant="primary"
+                onClick={() => setIsLoggingWastage(true)}
+                className="flex items-center space-x-1.5 !text-xs !py-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Record Wastage</span>
+              </Button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-canvas-100/60 text-stone-600 border-b border-canvas-border uppercase font-mono text-[10px]">
+                  <tr>
+                    <th className="py-3 px-4">Date & Time</th>
+                    <th className="py-3 px-3">Raw Material</th>
+                    <th className="py-3 px-3 text-right">Quantity Wasted</th>
+                    <th className="py-3 px-3 text-right">Financial Cost</th>
+                    <th className="py-3 px-3">Reason</th>
+                    <th className="py-3 px-3">Logged By</th>
+                    <th className="py-3 px-4 text-right">Manager Sign-off</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-canvas-border font-mono text-[11px]">
+                  {wastageLogs.length > 0 ? (
+                    wastageLogs.map(log => (
+                      <tr key={log.id} className="hover:bg-canvas-50/70 transition-colors">
+                        <td className="py-3 px-4 text-stone-500 font-mono text-[10px]">
+                          {new Date(log.createdAt).toLocaleString()}
+                        </td>
+                        <td className="py-3 px-3 font-sans font-bold text-stone-900">{log.rawMaterialName}</td>
+                        <td className="py-3 px-3 text-right text-rose-600 font-bold">
+                          -{log.quantity} {log.unit}
+                        </td>
+                        <td className="py-3 px-3 text-right text-stone-800 font-bold">
+                          {currencySymbol}{log.cost.toFixed(2)}
+                        </td>
+                        <td className="py-3 px-3 font-sans">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-canvas-200 text-stone-800">
+                            {log.reason.toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 font-sans text-stone-600">{log.loggedBy}</td>
+                        <td className="py-3 px-4 text-right font-sans">
+                          {log.managerApproval ? (
+                            <span className="text-sage-700 font-semibold text-[11px] inline-flex items-center space-x-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>{log.managerApproval.userName}</span>
+                            </span>
+                          ) : (
+                            <span className="text-stone-400">Self-certified</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={7} className="text-center py-6 text-stone-400 font-sans">
+                        No wastage or shrinkage incidents logged for this period.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* ===================================================================== */}
       {/* TAB 3: PURCHASE INWARD LOGS */}
       {/* ===================================================================== */}
@@ -883,6 +1481,347 @@ export const InventoryRecipeView: React.FC<InventoryRecipeViewProps> = ({
                 type="submit"
               >
                 Save Material
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ===================================================================== */}
+      {/* SUB-MODAL 3: RAISE PURCHASE ORDER DIALOG (PHASE 4) */}
+      {/* ===================================================================== */}
+      {isCreatingPo && (
+        <Modal
+          isOpen={true}
+          onClose={() => setIsCreatingPo(false)}
+          title="Raise Purchase Order"
+          subtitle="Generate formalized PO with itemized raw materials and supplier terms"
+          maxWidth="lg"
+        >
+          <form onSubmit={handleCreatePo} className="space-y-4 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] font-bold text-stone-700 block mb-1">Select Supplier *</label>
+                <select
+                  required
+                  value={poSupplierId}
+                  onChange={e => setPoSupplierId(e.target.value)}
+                  className="w-full bg-canvas-100 border border-canvas-border rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:border-stone-400"
+                >
+                  {suppliers.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.paymentTerms.toUpperCase()})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-stone-700 block mb-1">Expected Delivery Date</label>
+                <input
+                  type="date"
+                  value={poDeliveryDate}
+                  onChange={e => setPoDeliveryDate(e.target.value)}
+                  className="w-full bg-canvas-100 border border-canvas-border rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:border-stone-400"
+                >
+                </input>
+              </div>
+            </div>
+
+            {/* PO Line Items */}
+            <div className="space-y-2 border-t border-b border-canvas-border py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-stone-700 uppercase">Purchase Line Items</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (inventory.length > 0) {
+                      setPoItems(prev => [
+                        ...prev,
+                        { rawMaterialId: inventory[0].id, quantity: 5, unit: inventory[0].unit, unitCost: inventory[0].costPerUnit }
+                      ]);
+                    }
+                  }}
+                  className="text-terracotta-600 font-bold hover:underline flex items-center space-x-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Line Item</span>
+                </button>
+              </div>
+
+              {poItems.map((item, idx) => (
+                <div key={idx} className="flex items-center space-x-2 bg-canvas-50 p-2 rounded-xl border border-canvas-border">
+                  <select
+                    value={item.rawMaterialId}
+                    onChange={e => {
+                      const mat = inventory.find(m => m.id === e.target.value);
+                      if (mat) {
+                        const copy = [...poItems];
+                        copy[idx] = { ...copy[idx], rawMaterialId: mat.id, unit: mat.unit, unitCost: mat.costPerUnit };
+                        setPoItems(copy);
+                      }
+                    }}
+                    className="flex-1 bg-white border border-canvas-border rounded-lg px-2 py-1.5 text-xs text-stone-900"
+                  >
+                    {inventory.map(m => (
+                      <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0.1"
+                    value={item.quantity}
+                    onChange={e => {
+                      const copy = [...poItems];
+                      copy[idx].quantity = Number(e.target.value);
+                      setPoItems(copy);
+                    }}
+                    placeholder="Qty"
+                    className="w-16 bg-white border border-canvas-border rounded-lg px-2 py-1.5 text-xs font-mono text-center"
+                  />
+
+                  <div className="relative w-24">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-stone-400 font-mono text-[10px]">{currencySymbol}</span>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      value={item.unitCost}
+                      onChange={e => {
+                        const copy = [...poItems];
+                        copy[idx].unitCost = Number(e.target.value);
+                        setPoItems(copy);
+                      }}
+                      placeholder="Rate"
+                      className="w-full bg-white border border-canvas-border rounded-lg pl-5 pr-2 py-1.5 text-xs font-mono text-right"
+                    />
+                  </div>
+
+                  <span className="font-mono text-stone-800 font-bold w-20 text-right text-xs">
+                    {currencySymbol}{(item.quantity * item.unitCost).toFixed(1)}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => setPoItems(prev => prev.filter((_, i) => i !== idx))}
+                    className="p-1 text-stone-400 hover:text-rose-600"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-stone-700 block mb-1">Notes / Terms</label>
+              <textarea
+                rows={2}
+                value={poNotes}
+                onChange={e => setPoNotes(e.target.value)}
+                placeholder="e.g. Deliver before 10 AM, pack in moisture-sealed cartons"
+                className="w-full bg-canvas-100 border border-canvas-border rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:border-stone-400"
+              />
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-canvas-border">
+              <div className="text-xs font-mono">
+                Subtotal: <strong>{currencySymbol}{poItems.reduce((s, i) => s + i.quantity * i.unitCost, 0).toFixed(1)}</strong>
+                <span className="text-stone-400 ml-2">(+5% GST applicable)</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button variant="outline" type="button" onClick={() => setIsCreatingPo(false)}>
+                  Cancel
+                </Button>
+                <Button variant="primary" type="submit">
+                  Generate Purchase Order
+                </Button>
+              </div>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ===================================================================== */}
+      {/* SUB-MODAL 4: RECORD STOCK WASTAGE (PHASE 4) */}
+      {/* ===================================================================== */}
+      {isLoggingWastage && (
+        <Modal
+          isOpen={true}
+          onClose={() => setIsLoggingWastage(false)}
+          title="Record Stock Wastage / Shrinkage"
+          subtitle="Enforces stock decrement and optional Manager PIN authorization"
+          maxWidth="md"
+        >
+          <form onSubmit={handleLogWastage} className="space-y-4 text-xs">
+            <div>
+              <label className="text-[11px] font-bold text-stone-700 block mb-1">Raw Material *</label>
+              <select
+                required
+                value={wastageMaterialId}
+                onChange={e => setWastageMaterialId(e.target.value)}
+                className="w-full bg-canvas-100 border border-canvas-border rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:border-stone-400"
+              >
+                {inventory.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({m.currentStock} {m.unit} on hand @ {currencySymbol}{m.costPerUnit}/{m.unit})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] font-bold text-stone-700 block mb-1">Quantity Wasted *</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  required
+                  value={wastageQty}
+                  onChange={e => setWastageQty(Number(e.target.value))}
+                  className="w-full bg-canvas-100 border border-canvas-border rounded-xl px-3 py-2 text-stone-900 font-mono text-center focus:outline-none focus:border-stone-400"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-stone-700 block mb-1">Reason Code *</label>
+                <select
+                  value={wastageReason}
+                  onChange={e => setWastageReason(e.target.value as any)}
+                  className="w-full bg-canvas-100 border border-canvas-border rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:border-stone-400"
+                >
+                  <option value="spoilage">Spoilage / Rotten</option>
+                  <option value="expired">Past Expiry Date</option>
+                  <option value="damaged">Damaged Packaging / Broken</option>
+                  <option value="prep_waste">Excess Prep Waste / Burnt</option>
+                  <option value="audit_discrepancy">Physical Audit Discrepancy</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-stone-700 block mb-1">Incident Notes / Cause</label>
+              <input
+                type="text"
+                value={wastageNotes}
+                onChange={e => setWastageNotes(e.target.value)}
+                placeholder="e.g. Refrigerator #2 compressor tripped overnight"
+                className="w-full bg-canvas-100 border border-canvas-border rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:border-stone-400"
+              />
+            </div>
+
+            {/* Manager PIN Authorization */}
+            <div className="bg-amber-50 p-3 rounded-xl border border-amber-200 space-y-2">
+              <div className="flex items-center space-x-1.5 text-amber-900 font-bold text-[11px]">
+                <ShieldAlert className="w-4 h-4 text-amber-700" />
+                <span>Manager Approval PIN (Optional / High-Value Audit)</span>
+              </div>
+              <input
+                type="password"
+                maxLength={4}
+                value={wastageManagerPin}
+                onChange={e => setWastageManagerPin(e.target.value)}
+                placeholder="Enter 4-digit Manager PIN (e.g. 2222)"
+                className="w-full bg-white border border-amber-300 rounded-lg px-3 py-1.5 text-xs text-stone-900 font-mono text-center tracking-widest focus:outline-none focus:border-amber-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-end space-x-2 pt-3 border-t border-canvas-border">
+              <Button variant="outline" type="button" onClick={() => setIsLoggingWastage(false)}>
+                Cancel
+              </Button>
+              <Button variant="primary" type="submit">
+                Confirm & Deduct Stock
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ===================================================================== */}
+      {/* SUB-MODAL 5: ADD SUPPLIER DIALOG (PHASE 4) */}
+      {/* ===================================================================== */}
+      {isAddingSupplier && (
+        <Modal
+          isOpen={true}
+          onClose={() => setIsAddingSupplier(false)}
+          title="Register New Vendor / Supplier"
+          subtitle="Add vendor details to master procurement directory"
+          maxWidth="md"
+        >
+          <form onSubmit={handleCreateSupplier} className="space-y-4 text-xs">
+            <div>
+              <label className="text-[11px] font-bold text-stone-700 block mb-1">Company / Supplier Name *</label>
+              <input
+                type="text"
+                required
+                value={supplierForm.name}
+                onChange={e => setSupplierForm({ ...supplierForm, name: e.target.value })}
+                placeholder="e.g. Modern Dairy Distributors"
+                className="w-full bg-canvas-100 border border-canvas-border rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:border-stone-400"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] font-bold text-stone-700 block mb-1">Contact Person</label>
+                <input
+                  type="text"
+                  value={supplierForm.contactPerson}
+                  onChange={e => setSupplierForm({ ...supplierForm, contactPerson: e.target.value })}
+                  placeholder="e.g. Rajesh Shah"
+                  className="w-full bg-canvas-100 border border-canvas-border rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:border-stone-400"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-stone-700 block mb-1">Phone Number *</label>
+                <input
+                  type="tel"
+                  required
+                  value={supplierForm.phone}
+                  onChange={e => setSupplierForm({ ...supplierForm, phone: e.target.value })}
+                  placeholder="+91 98765 43210"
+                  className="w-full bg-canvas-100 border border-canvas-border rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:border-stone-400"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] font-bold text-stone-700 block mb-1">GSTIN Number</label>
+                <input
+                  type="text"
+                  value={supplierForm.gstin}
+                  onChange={e => setSupplierForm({ ...supplierForm, gstin: e.target.value })}
+                  placeholder="27AAAAA0000A1Z5"
+                  className="w-full bg-canvas-100 border border-canvas-border rounded-xl px-3 py-2 text-stone-900 font-mono uppercase focus:outline-none focus:border-stone-400"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-stone-700 block mb-1">Payment Credit Terms</label>
+                <select
+                  value={supplierForm.paymentTerms}
+                  onChange={e => setSupplierForm({ ...supplierForm, paymentTerms: e.target.value as any })}
+                  className="w-full bg-canvas-100 border border-canvas-border rounded-xl px-3 py-2 text-stone-900 focus:outline-none focus:border-stone-400"
+                >
+                  <option value="immediate">Immediate / Cash On Delivery</option>
+                  <option value="net_7">Net 7 Days</option>
+                  <option value="net_15">Net 15 Days</option>
+                  <option value="net_30">Net 30 Days</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end space-x-2 pt-3 border-t border-canvas-border">
+              <Button variant="outline" type="button" onClick={() => setIsAddingSupplier(false)}>
+                Cancel
+              </Button>
+              <Button variant="primary" type="submit">
+                Save Vendor Profile
               </Button>
             </div>
           </form>

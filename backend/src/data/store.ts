@@ -21,7 +21,21 @@ import {
   GuestWaitlistEntry,
   SplitPaymentEntry,
   DeliveryPartner,
-  DeliveryPartnerConfig
+  DeliveryPartnerConfig,
+  StaffRole,
+  StaffPermission,
+  StaffUser,
+  AuditLog,
+  PaymentTransaction,
+  WebhookDeliveryLog,
+  PartnerReconciliationEntry,
+  ReconciliationReport,
+  Supplier,
+  PurchaseOrder,
+  PurchaseOrderItem,
+  WastageLog,
+  RecipeVarianceReport,
+  WaiterCallRequest
 } from '../types';
 
 interface StoreData {
@@ -37,9 +51,17 @@ interface StoreData {
   customers: CustomerProfile[];
   reservations: TableReservation[];
   waitlist: GuestWaitlistEntry[];
+  staffUsers: StaffUser[];
+  auditLogs: AuditLog[];
+  payments: PaymentTransaction[];
+  webhookLogs: WebhookDeliveryLog[];
+  suppliers: Supplier[];
+  purchaseOrders: PurchaseOrder[];
+  wastageLogs: WastageLog[];
+  waiterCalls: WaiterCallRequest[];
 }
 
-const DATA_FILE = path.join(__dirname, 'store.json');
+const DATA_FILE = path.join(__dirname, 'restopulse-db.json');
 
 // Generate an unguessable cryptographic token for tables
 export function generateSecureQrToken(): string {
@@ -486,6 +508,169 @@ const initialOrders: Order[] = [
   }
 ];
 
+export const initialStaffUsers: StaffUser[] = [
+  {
+    id: 'staff-owner-01',
+    username: 'admin',
+    name: 'Rajesh Oberoi (Owner)',
+    role: 'owner',
+    pin: '1111',
+    phone: '+919876543210',
+    isActive: true,
+    permissions: [
+      'BILL_CREATE', 'BILL_VOID', 'BILL_REFUND', 'DISCOUNT_APPLY', 'DISCOUNT_OVERRIDE',
+      'STOCK_VIEW', 'STOCK_INWARD', 'STOCK_ADJUST', 'PETTY_EXPENSE', 'SHIFT_CLOSE',
+      'MENU_EDIT', 'REPORTS_VIEW', 'STAFF_MANAGE', 'SETTINGS_EDIT'
+    ],
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'staff-mgr-01',
+    username: 'manager',
+    name: 'Vikram Malhotra (Store Manager)',
+    role: 'manager',
+    pin: '2222',
+    phone: '+919876543211',
+    isActive: true,
+    permissions: [
+      'BILL_CREATE', 'BILL_VOID', 'BILL_REFUND', 'DISCOUNT_APPLY', 'DISCOUNT_OVERRIDE',
+      'STOCK_VIEW', 'STOCK_INWARD', 'STOCK_ADJUST', 'PETTY_EXPENSE', 'SHIFT_CLOSE',
+      'REPORTS_VIEW'
+    ],
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'staff-cashier-01',
+    username: 'cashier',
+    name: 'Pooja Sharma (Head Cashier)',
+    role: 'cashier',
+    pin: '3333',
+    phone: '+919876543212',
+    isActive: true,
+    permissions: [
+      'BILL_CREATE', 'DISCOUNT_APPLY', 'PETTY_EXPENSE', 'SHIFT_CLOSE', 'STOCK_VIEW'
+    ],
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'staff-waiter-01',
+    username: 'waiter',
+    name: 'Amit Kumar (Lead Captain)',
+    role: 'waiter',
+    pin: '4444',
+    phone: '+919876543213',
+    isActive: true,
+    permissions: ['BILL_CREATE'],
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'staff-kitchen-01',
+    username: 'kitchen',
+    name: 'Chef Sanjeev (Kitchen Head)',
+    role: 'kitchen',
+    pin: '5555',
+    phone: '+919876543214',
+    isActive: true,
+    permissions: [],
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'staff-inv-01',
+    username: 'inventory',
+    name: 'Ramesh Verma (Storekeeper)',
+    role: 'inventory',
+    pin: '6666',
+    phone: '+919876543215',
+    isActive: true,
+    permissions: ['STOCK_VIEW', 'STOCK_INWARD', 'STOCK_ADJUST'],
+    createdAt: new Date().toISOString()
+  }
+];
+
+export const initialSuppliers: Supplier[] = [
+  {
+    id: 'sup_metro',
+    name: 'Metro Cash & Carry Wholesale',
+    contactPerson: 'Sunil Mehta',
+    phone: '+91 98221 44556',
+    email: 'orders.mumbai@metro.co.in',
+    gstin: '27AABCM8899C1ZM',
+    address: 'Plot 44, Industrial Area, Kurla West, Mumbai',
+    categoriesSupplied: ['Grocery', 'Dairy', 'Beverage'],
+    paymentTerms: 'net_15',
+    rating: 4.8,
+    active: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'sup_farmfresh',
+    name: 'Fresh Farm Produce Co.',
+    contactPerson: 'Kailash Patel',
+    phone: '+91 97665 11223',
+    email: 'kailash@freshfarmproduce.com',
+    gstin: '27AABCF1234D1ZP',
+    address: 'Vashi APMC Market, Turbhe, Navi Mumbai',
+    categoriesSupplied: ['Produce', 'Poultry'],
+    paymentTerms: 'immediate',
+    rating: 4.6,
+    active: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'sup_amul',
+    name: 'Amul Dairy Distributors Ltd',
+    contactPerson: 'Dinesh Dave',
+    phone: '+91 98980 99887',
+    email: 'supply@amuldairy.in',
+    gstin: '24AAACA0001A1Z9',
+    address: 'Amul Depot, Sector 3, Vashi, Navi Mumbai',
+    categoriesSupplied: ['Dairy'],
+    paymentTerms: 'net_7',
+    rating: 4.9,
+    active: true,
+    createdAt: new Date().toISOString()
+  }
+];
+
+export const initialPurchaseOrders: PurchaseOrder[] = [
+  {
+    id: 'po_101',
+    poNumber: 'PO-2026-001',
+    supplierId: 'sup_metro',
+    supplierName: 'Metro Cash & Carry Wholesale',
+    status: 'received',
+    items: [
+      { rawMaterialId: 'raw_rice', rawMaterialName: 'Royal Basmati Rice', quantity: 20, unit: 'kg', unitCost: 95, totalCost: 1900 },
+      { rawMaterialId: 'raw_maida', rawMaterialName: 'Flour (Maida)', quantity: 15, unit: 'kg', unitCost: 38, totalCost: 570 }
+    ],
+    subtotal: 2470,
+    tax: 123.5,
+    totalAmount: 2593.5,
+    expectedDeliveryDate: new Date(Date.now() - 48 * 3600000).toISOString(),
+    receivedAt: new Date(Date.now() - 24 * 3600000).toISOString(),
+    receivedBy: 'Ramesh Verma (Storekeeper)',
+    createdAt: new Date(Date.now() - 72 * 3600000).toISOString(),
+    updatedAt: new Date(Date.now() - 24 * 3600000).toISOString()
+  },
+  {
+    id: 'po_102',
+    poNumber: 'PO-2026-002',
+    supplierId: 'sup_farmfresh',
+    supplierName: 'Fresh Farm Produce Co.',
+    status: 'ordered',
+    items: [
+      { rawMaterialId: 'raw_chicken', rawMaterialName: 'Chicken (Boneless)', quantity: 25, unit: 'kg', unitCost: 220, totalCost: 5500 },
+      { rawMaterialId: 'raw_tomato', rawMaterialName: 'Fresh Red Tomatoes', quantity: 30, unit: 'kg', unitCost: 35, totalCost: 1050 }
+    ],
+    subtotal: 6550,
+    tax: 327.5,
+    totalAmount: 6877.5,
+    expectedDeliveryDate: new Date(Date.now() + 24 * 3600000).toISOString(),
+    createdAt: new Date(Date.now() - 12 * 3600000).toISOString(),
+    updatedAt: new Date(Date.now() - 12 * 3600000).toISOString()
+  }
+];
+
 class Store {
   private data: StoreData;
 
@@ -528,6 +713,30 @@ class Store {
         if (!parsed.waitlist) {
           parsed.waitlist = initialWaitlist;
         }
+        if (!parsed.staffUsers || parsed.staffUsers.length === 0) {
+          parsed.staffUsers = initialStaffUsers;
+        }
+        if (!parsed.auditLogs) {
+          parsed.auditLogs = [];
+        }
+        if (!parsed.payments) {
+          parsed.payments = [];
+        }
+        if (!parsed.webhookLogs) {
+          parsed.webhookLogs = [];
+        }
+        if (!parsed.suppliers || parsed.suppliers.length === 0) {
+          parsed.suppliers = initialSuppliers;
+        }
+        if (!parsed.purchaseOrders || parsed.purchaseOrders.length === 0) {
+          parsed.purchaseOrders = initialPurchaseOrders;
+        }
+        if (!parsed.wastageLogs) {
+          parsed.wastageLogs = [];
+        }
+        if (!parsed.waiterCalls) {
+          parsed.waiterCalls = [];
+        }
         // Ensure every table has a secure qrToken
         parsed.tables = parsed.tables.map((t: RestaurantTable) => {
           if (!t.qrToken || t.qrToken.startsWith('qr_')) {
@@ -553,7 +762,15 @@ class Store {
       cashRegister: initialShift,
       customers: initialCustomers,
       reservations: initialReservations,
-      waitlist: initialWaitlist
+      waitlist: initialWaitlist,
+      staffUsers: initialStaffUsers,
+      auditLogs: [],
+      payments: [],
+      webhookLogs: [],
+      suppliers: initialSuppliers,
+      purchaseOrders: initialPurchaseOrders,
+      wastageLogs: [],
+      waiterCalls: []
     };
     this.save(initial);
     return initial;
@@ -561,7 +778,18 @@ class Store {
 
   private save(data: StoreData) {
     try {
-      fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
+      const tempFile = `${DATA_FILE}.tmp.${process.pid}.${Date.now()}`;
+      fs.writeFileSync(tempFile, JSON.stringify(data, null, 2), 'utf-8');
+      try {
+        fs.renameSync(tempFile, DATA_FILE);
+      } catch (err: any) {
+        if (err.code === 'EEXIST' || err.code === 'EPERM') {
+          fs.copyFileSync(tempFile, DATA_FILE);
+          try { fs.unlinkSync(tempFile); } catch {}
+        } else {
+          throw err;
+        }
+      }
     } catch (e) {
       console.error('Failed to save store.json:', e);
     }
@@ -950,7 +1178,33 @@ class Store {
     return false;
   }
 
-  addStockInward(rawMaterialId: string, quantityAdded: number, costPrice: number, supplierName?: string): { material: RawMaterial; log: StockInwardEntry } | undefined {
+  addStockInward(
+    param1: string | Partial<StockInwardEntry>,
+    param2?: number,
+    param3?: number,
+    param4?: string,
+    param5?: string
+  ): { material: RawMaterial; log: StockInwardEntry } | undefined {
+    let rawMaterialId: string;
+    let quantityAdded: number;
+    let costPrice: number;
+    let supplierName: string | undefined;
+    let purchaseOrderId: string | undefined;
+
+    if (typeof param1 === 'object') {
+      rawMaterialId = param1.rawMaterialId!;
+      quantityAdded = param1.quantityAdded!;
+      costPrice = param1.costPrice!;
+      supplierName = param1.supplierName;
+      purchaseOrderId = param1.purchaseOrderId;
+    } else {
+      rawMaterialId = param1;
+      quantityAdded = param2!;
+      costPrice = param3!;
+      supplierName = param4;
+      purchaseOrderId = param5;
+    }
+
     const material = this.data.inventory.find(m => m.id === rawMaterialId);
     if (!material) return undefined;
 
@@ -966,6 +1220,7 @@ class Store {
       unit: material.unit,
       costPrice: Number(costPrice) || material.costPerUnit,
       supplierName: supplierName || 'Local Supplier',
+      purchaseOrderId,
       createdAt: new Date().toISOString()
     };
 
@@ -979,6 +1234,103 @@ class Store {
 
   getStockInwardLogs(): StockInwardEntry[] {
     return this.data.stockInwardLogs || [];
+  }
+
+  // ==========================================
+  // Suppliers & Procurement Management (Phase 4)
+  // ==========================================
+  getSuppliers(): Supplier[] {
+    if (!this.data.suppliers) {
+      this.data.suppliers = initialSuppliers;
+    }
+    return this.data.suppliers;
+  }
+
+  getSupplierById(id: string): Supplier | undefined {
+    return this.getSuppliers().find(s => s.id === id);
+  }
+
+  createSupplier(supplier: Supplier): Supplier {
+    if (!this.data.suppliers) {
+      this.data.suppliers = [];
+    }
+    this.data.suppliers.push(supplier);
+    this.save(this.data);
+    return supplier;
+  }
+
+  updateSupplier(id: string, update: Partial<Supplier>): Supplier | undefined {
+    const suppliers = this.getSuppliers();
+    const idx = suppliers.findIndex(s => s.id === id);
+    if (idx !== -1) {
+      suppliers[idx] = { ...suppliers[idx], ...update };
+      this.save(this.data);
+      return suppliers[idx];
+    }
+    return undefined;
+  }
+
+  deleteSupplier(id: string): boolean {
+    const initialLen = this.getSuppliers().length;
+    this.data.suppliers = this.data.suppliers.filter(s => s.id !== id);
+    if (this.data.suppliers.length !== initialLen) {
+      this.save(this.data);
+      return true;
+    }
+    return false;
+  }
+
+  // ==========================================
+  // Purchase Orders Workflow (Phase 4)
+  // ==========================================
+  getPurchaseOrders(): PurchaseOrder[] {
+    if (!this.data.purchaseOrders) {
+      this.data.purchaseOrders = initialPurchaseOrders;
+    }
+    return this.data.purchaseOrders;
+  }
+
+  getPurchaseOrderById(id: string): PurchaseOrder | undefined {
+    return this.getPurchaseOrders().find(p => p.id === id);
+  }
+
+  createPurchaseOrder(po: PurchaseOrder): PurchaseOrder {
+    if (!this.data.purchaseOrders) {
+      this.data.purchaseOrders = [];
+    }
+    this.data.purchaseOrders.unshift(po);
+    this.save(this.data);
+    return po;
+  }
+
+  updatePurchaseOrder(id: string, update: Partial<PurchaseOrder>): PurchaseOrder | undefined {
+    const orders = this.getPurchaseOrders();
+    const idx = orders.findIndex(p => p.id === id);
+    if (idx !== -1) {
+      orders[idx] = { ...orders[idx], ...update };
+      this.save(this.data);
+      return orders[idx];
+    }
+    return undefined;
+  }
+
+  // ==========================================
+  // Wastage & Spoilage Logs (Phase 4)
+  // ==========================================
+  getWastageLogs(): WastageLog[] {
+    if (!this.data.wastageLogs) {
+      this.data.wastageLogs = [];
+    }
+    return this.data.wastageLogs;
+  }
+
+  createWastageLog(log: WastageLog): WastageLog {
+    if (!this.data.wastageLogs) {
+      this.data.wastageLogs = [];
+    }
+    this.data.wastageLogs.unshift(log);
+    this.save(this.data);
+    return log;
   }
 
   deductInventoryForOrder(order: Order) {
@@ -1119,6 +1471,17 @@ class Store {
     this.data.customers.push(newCust);
     this.save(this.data);
     return newCust;
+  }
+
+  updateCustomer(id: string, update: Partial<CustomerProfile>): CustomerProfile | undefined {
+    const customers = this.getCustomers();
+    const idx = customers.findIndex(c => c.id === id);
+    if (idx !== -1) {
+      customers[idx] = { ...customers[idx], ...update };
+      this.save(this.data);
+      return customers[idx];
+    }
+    return undefined;
   }
 
   recordCustomerBill(bill: Bill): CustomerProfile | undefined {
@@ -1382,7 +1745,327 @@ class Store {
     this.save(this.data);
     return order;
   }
+
+  // ==========================================
+  // Staff Accounts & Access Control (Phase 1)
+  // ==========================================
+  getStaffUsers(includeInactive = false): StaffUser[] {
+    if (!this.data.staffUsers || this.data.staffUsers.length === 0) {
+      this.data.staffUsers = initialStaffUsers;
+    }
+    return includeInactive ? this.data.staffUsers : this.data.staffUsers.filter(u => u.isActive);
+  }
+
+  getStaffUserById(id: string): StaffUser | undefined {
+    return this.getStaffUsers(true).find(u => u.id === id);
+  }
+
+  getStaffUserByPin(pin: string): StaffUser | undefined {
+    return this.getStaffUsers().find(u => u.pin === pin);
+  }
+
+  verifyPin(pin: string, requiredRoles?: StaffRole[]): { success: boolean; user?: StaffUser; error?: string } {
+    const user = this.getStaffUserByPin(pin);
+    if (!user) {
+      return { success: false, error: 'Invalid security PIN' };
+    }
+    if (!user.isActive) {
+      return { success: false, error: 'Staff account is inactive' };
+    }
+    if (requiredRoles && requiredRoles.length > 0 && !requiredRoles.includes(user.role)) {
+      return { success: false, error: `Unauthorized: Action requires ${requiredRoles.join(' or ')} privileges` };
+    }
+    return { success: true, user };
+  }
+
+  createStaffUser(userData: Omit<StaffUser, 'id' | 'createdAt'>): StaffUser {
+    const newUser: StaffUser = {
+      ...userData,
+      id: `staff_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      createdAt: new Date().toISOString()
+    };
+    this.data.staffUsers.push(newUser);
+    this.save(this.data);
+    return newUser;
+  }
+
+  updateStaffUser(id: string, update: Partial<StaffUser>): StaffUser | undefined {
+    const idx = this.data.staffUsers.findIndex(u => u.id === id);
+    if (idx !== -1) {
+      this.data.staffUsers[idx] = { ...this.data.staffUsers[idx], ...update };
+      this.save(this.data);
+      return this.data.staffUsers[idx];
+    }
+    return undefined;
+  }
+
+  // ==========================================
+  // Immutable Audit Trail Engine (Phase 1)
+  // ==========================================
+  addAuditLog(entry: Omit<AuditLog, 'id' | 'timestamp'>): AuditLog {
+    if (!this.data.auditLogs) {
+      this.data.auditLogs = [];
+    }
+    const log: AuditLog = {
+      ...entry,
+      id: `audit_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      timestamp: new Date().toISOString()
+    };
+    this.data.auditLogs.unshift(log);
+    // Keep max 2,000 logs in local storage
+    if (this.data.auditLogs.length > 2000) {
+      this.data.auditLogs = this.data.auditLogs.slice(0, 2000);
+    }
+    this.save(this.data);
+    return log;
+  }
+
+  getAuditLogs(filter?: { entityType?: string; entityId?: string; role?: StaffRole; limit?: number }): AuditLog[] {
+    let logs = this.data.auditLogs || [];
+    if (filter?.entityType) {
+      logs = logs.filter(l => l.entityType === filter.entityType);
+    }
+    if (filter?.entityId) {
+      logs = logs.filter(l => l.entityId === filter.entityId);
+    }
+    if (filter?.role) {
+      logs = logs.filter(l => l.role === filter.role);
+    }
+    if (filter?.limit) {
+      logs = logs.slice(0, filter.limit);
+    }
+    return logs;
+  }
+
+  // ==========================================
+  // Bill Cancellation & Void Engine (Phase 1)
+  // ==========================================
+  voidBill(
+    billId: string,
+    voidedBy: { userId: string; userName: string; role: StaffRole },
+    reason: string,
+    approvedBy?: { userId: string; userName: string; role: StaffRole }
+  ): { success: boolean; bill?: Bill; error?: string } {
+    const bill = this.getBillById(billId);
+    if (!bill) {
+      return { success: false, error: 'Bill not found' };
+    }
+    if (bill.status === 'cancelled') {
+      return { success: false, error: 'Bill is already cancelled / voided' };
+    }
+
+    const previousStatus = bill.status;
+    bill.status = 'cancelled';
+    bill.cancelledAt = new Date().toISOString();
+    bill.cancelledBy = `${voidedBy.userName} (${voidedBy.role})`;
+    bill.cancellationReason = reason;
+
+    // Deduct cash from cash register if it was paid in cash
+    let cashToDeduct = 0;
+    if (bill.paymentMode === 'cash') {
+      cashToDeduct = bill.total;
+    } else if (bill.paymentMode === 'split' && bill.splitPayments) {
+      cashToDeduct = bill.splitPayments.find(p => p.mode === 'cash')?.amount || 0;
+    }
+
+    if (cashToDeduct > 0) {
+      const register = this.getCashRegister();
+      if (register && register.status === 'open') {
+        register.cashSales = Math.max(0, register.cashSales - cashToDeduct);
+        const totalExpenses = register.pettyExpenses.reduce((sum, e) => sum + e.amount, 0);
+        register.expectedCash = Number((register.openingFloat + register.cashSales - totalExpenses).toFixed(2));
+      }
+    }
+
+    // Reverse loyalty points if customer phone is recorded
+    if (bill.customerPhone) {
+      const customer = this.getCustomerByPhone(bill.customerPhone);
+      if (customer) {
+        const pointsEarned = bill.pointsEarned || Math.floor(bill.total / 100);
+        customer.loyaltyPoints = Math.max(0, customer.loyaltyPoints - pointsEarned + (bill.pointsRedeemed || 0));
+        customer.totalSpend = Math.max(0, customer.totalSpend - bill.total);
+        customer.visitsCount = Math.max(0, customer.visitsCount - 1);
+      }
+    }
+
+    // Add immutable audit log
+    this.addAuditLog({
+      userId: voidedBy.userId,
+      userName: voidedBy.userName,
+      role: voidedBy.role,
+      action: 'BILL_VOIDED',
+      entityType: 'bill',
+      entityId: bill.id,
+      details: {
+        invoiceNumber: bill.invoiceNumber,
+        total: bill.total,
+        paymentMode: bill.paymentMode,
+        previousStatus
+      },
+      reason,
+      approvedBy
+    });
+
+    this.save(this.data);
+    return { success: true, bill };
+  }
+
+  // ==========================================
+  // Payments & Provider Reconciliation (Phase 3)
+  // ==========================================
+  getPayments(): PaymentTransaction[] {
+    if (!this.data.payments) this.data.payments = [];
+    return this.data.payments;
+  }
+
+  getPaymentById(id: string): PaymentTransaction | undefined {
+    return this.getPayments().find(p => p.id === id);
+  }
+
+  getPaymentByIdempotencyKey(key: string): PaymentTransaction | undefined {
+    return this.getPayments().find(p => p.idempotencyKey === key);
+  }
+
+  createPayment(payment: PaymentTransaction): PaymentTransaction {
+    if (!this.data.payments) this.data.payments = [];
+    this.data.payments.unshift(payment);
+    this.save(this.data);
+    return payment;
+  }
+
+  updatePayment(id: string, update: Partial<PaymentTransaction>): PaymentTransaction | undefined {
+    const idx = this.data.payments.findIndex(p => p.id === id);
+    if (idx !== -1) {
+      this.data.payments[idx] = { ...this.data.payments[idx], ...update, updatedAt: new Date().toISOString() };
+      this.save(this.data);
+      return this.data.payments[idx];
+    }
+    return undefined;
+  }
+
+  // ==========================================
+  // Aggregator Webhook Deduplication (Phase 3)
+  // ==========================================
+  addWebhookLog(entry: Omit<WebhookDeliveryLog, 'id' | 'timestamp'>): WebhookDeliveryLog {
+    if (!this.data.webhookLogs) this.data.webhookLogs = [];
+    const log: WebhookDeliveryLog = {
+      ...entry,
+      id: `wh_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      timestamp: new Date().toISOString()
+    };
+    this.data.webhookLogs.unshift(log);
+    if (this.data.webhookLogs.length > 1000) {
+      this.data.webhookLogs = this.data.webhookLogs.slice(0, 1000);
+    }
+    this.save(this.data);
+    return log;
+  }
+
+  getWebhookLogs(limit = 100): WebhookDeliveryLog[] {
+    return (this.data.webhookLogs || []).slice(0, limit);
+  }
+
+  isWebhookEventProcessed(eventId: string): boolean {
+    return (this.data.webhookLogs || []).some(
+      l => l.eventId === eventId && l.status === 'processed'
+    );
+  }
+
+  // ==========================================
+  // Financial Reconciliation Engine (Phase 3)
+  // ==========================================
+  getAggregatorReconciliation(): ReconciliationReport {
+    const partners: DeliveryPartner[] = ['zomato', 'swiggy', 'ondc', 'magicpin'];
+    const bills = this.getBills().filter(b => b.status === 'paid');
+    const partnerConfigs = this.getDeliveryPartners();
+
+    const partnerBreakdown: PartnerReconciliationEntry[] = partners.map(partner => {
+      const cfg = partnerConfigs.find(c => c.partner === partner);
+      const partnerName = cfg?.name || partner.toUpperCase();
+      const commPct = cfg?.commissionPercent || (partner === 'zomato' ? 18 : partner === 'swiggy' ? 20 : partner === 'ondc' ? 12 : 15);
+
+      const partnerBills = bills.filter(b => b.deliveryPartner === partner);
+      const grossSales = partnerBills.reduce((sum, b) => sum + b.total, 0);
+      const commissionAmount = Number(((grossSales * commPct) / 100).toFixed(2));
+      const gstOnCommission = Number((commissionAmount * 0.18).toFixed(2)); // 18% GST on aggregator commission fees
+      const tcsAmount = Number((grossSales * 0.01).toFixed(2)); // 1% TCS under GST section 52
+      const netPayout = Number((grossSales - commissionAmount - gstOnCommission - tcsAmount).toFixed(2));
+
+      return {
+        partner,
+        partnerName,
+        orderCount: partnerBills.length,
+        grossSales,
+        commissionAmount,
+        gstOnCommission,
+        tcsAmount,
+        netPayout,
+        discrepancy: 0
+      };
+    });
+
+    const totalGrossOnlineSales = partnerBreakdown.reduce((sum, p) => sum + p.grossSales, 0);
+    const totalCommissionsDeducted = partnerBreakdown.reduce((sum, p) => sum + p.commissionAmount, 0);
+    const totalGstOnCommissions = partnerBreakdown.reduce((sum, p) => sum + p.gstOnCommission, 0);
+    const totalNetPayoutReceivable = partnerBreakdown.reduce((sum, p) => sum + p.netPayout, 0);
+
+    const cashBills = bills.filter(b => b.paymentMode === 'cash');
+    const cashSales = cashBills.reduce((sum, b) => sum + b.total, 0);
+
+    const onlineBills = bills.filter(b => b.paymentMode === 'upi' || b.paymentMode === 'card');
+    const onlineGatewaySales = onlineBills.reduce((sum, b) => sum + b.total, 0);
+
+    return {
+      periodStart: new Date(Date.now() - 30 * 86400000).toISOString(),
+      periodEnd: new Date().toISOString(),
+      totalGrossOnlineSales,
+      totalCommissionsDeducted,
+      totalGstOnCommissions,
+      totalNetPayoutReceivable,
+      partnerBreakdown,
+      cashVsOnlineSplit: {
+        cashSales,
+        onlineGatewaySales,
+        aggregatorNetSales: totalNetPayoutReceivable
+      }
+    };
+  }
+
+  // ==========================================
+  // Waiter Assistance Calls (Phase 5)
+  // ==========================================
+  getWaiterCalls(): WaiterCallRequest[] {
+    if (!this.data.waiterCalls) {
+      this.data.waiterCalls = [];
+    }
+    return this.data.waiterCalls;
+  }
+
+  getWaiterCallById(id: string): WaiterCallRequest | undefined {
+    return this.getWaiterCalls().find(c => c.id === id);
+  }
+
+  createWaiterCall(call: WaiterCallRequest): WaiterCallRequest {
+    if (!this.data.waiterCalls) {
+      this.data.waiterCalls = [];
+    }
+    this.data.waiterCalls.unshift(call);
+    this.save(this.data);
+    return call;
+  }
+
+  updateWaiterCall(id: string, update: Partial<WaiterCallRequest>): WaiterCallRequest | undefined {
+    const calls = this.getWaiterCalls();
+    const idx = calls.findIndex(c => c.id === id);
+    if (idx !== -1) {
+      calls[idx] = { ...calls[idx], ...update };
+      this.save(this.data);
+      return calls[idx];
+    }
+    return undefined;
+  }
 }
+
 
 export const store = new Store();
 

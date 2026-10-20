@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, User, Clock, ShoppingBag } from 'lucide-react';
-import { RestaurantProfile } from '../../types';
+import { RestaurantProfile, StaffUser } from '../../types';
 import { ActiveNavView } from './Sidebar';
 
 interface TopHeaderProps {
@@ -10,6 +10,8 @@ interface TopHeaderProps {
   onQuickPos: () => void;
   onOpenSettings: () => void;
   isAcceptingOrders?: boolean;
+  currentStaff?: StaffUser;
+  onSwitchStaff?: () => void;
 }
 
 export const TopHeader: React.FC<TopHeaderProps> = ({
@@ -18,7 +20,9 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   onOpenMobileMenu,
   onQuickPos,
   onOpenSettings,
-  isAcceptingOrders = true
+  isAcceptingOrders = true,
+  currentStaff,
+  onSwitchStaff
 }) => {
   const [time, setTime] = useState(new Date());
 
@@ -86,6 +90,11 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
       title: 'Cash register & shift management',
       subtitle: 'Opening float, mid-day petty expenses, live cash sales and end-of-shift discrepancy audits.'
     },
+    waiter: {
+      breadcrumb: `${prefix} / WAITER COMPANION`,
+      title: 'Handheld Waiter Companion & Service',
+      subtitle: 'Table-side order taking, seat allocation, course hold/fire and guest call assistance.'
+    },
     settings: {
       breadcrumb: `${prefix} / CONFIGURATION`,
       title: isCafe ? 'Café settings & integrations' : 'Restaurant settings & integrations',
@@ -151,6 +160,19 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             <span className="hidden sm:inline">Take Order</span>
           </button>
         )}
+
+        {/* Staff Role & Context Switcher (Phase 1 RBAC) */}
+        <button
+          onClick={onSwitchStaff}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-stone-50 hover:bg-stone-100 border border-canvas-border text-xs font-semibold text-stone-800 transition-all shadow-sm"
+          title="Click to switch active staff role / identity"
+        >
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="max-w-[120px] truncate">{currentStaff ? currentStaff.name.split(' ')[0] : 'Staff'}</span>
+          <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-stone-200 text-stone-700">
+            {currentStaff?.role || 'Staff'}
+          </span>
+        </button>
 
         {/* Profile Avatar Button */}
         <button

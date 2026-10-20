@@ -3,7 +3,24 @@ import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
 import { store } from '../data/store';
 import { OpenWAService } from '../services/openwa.service';
-import { Order, Bill, OrderItem, DeliveryPartner } from '../types';
+import { EscPosService } from '../services/escpos.service';
+import { AggregatorSecurityService } from '../services/aggregatorSecurity.service';
+import { InventoryCostingService } from '../services/inventoryCosting.service';
+import { KdsService } from '../services/kdsService';
+import { LoyaltyEngineService } from '../services/loyaltyEngine.service';
+import {
+  Order,
+  Bill,
+  OrderItem,
+  DeliveryPartner,
+  EscPosOptions,
+  PaymentProvider,
+  Supplier,
+  PurchaseOrder,
+  WastageLog,
+  CourseType,
+  BusinessType
+} from '../types';
 
 export const apiRouter = Router();
 
@@ -481,6 +498,34 @@ apiRouter.post('/bills', async (req: Request, res: Response) => {
 
   const createdBill = store.createBill(newBill);
 
+  // Phase 4: Automatically deduct inventory based on recipe BOM
+  if (items && items.length > 0) {
+    try {
+      InventoryCostingService.deductRecipeStockOnOrder(items);
+    } catch (e) {
+      console.error('[Inventory] Failed to auto-deduct BOM stock:', e);
+    }
+  }
+
+  // Phase 1: Audit high discounts and staff actions
+  if (discountAmount > 0) {
+    store.addAuditLog({
+      userId: req.body.createdBy?.userId || 'staff-cashier-01',
+      userName: req.body.createdBy?.userName || 'Pooja Sharma (Head Cashier)',
+      role: req.body.createdBy?.role || 'cashier',
+      action: discountAmount > 200 ? 'HIGH_DISCOUNT_APPLIED' : 'DISCOUNT_APPLIED',
+      entityType: 'bill',
+      entityId: createdBill.id,
+      details: {
+        invoiceNumber: createdBill.invoiceNumber,
+        subtotal: createdBill.subtotal,
+        discountAmount,
+        discountReason: discountReason || 'Discretionary'
+      },
+      reason: discountReason,
+      approvedBy: req.body.managerApproval
+    });
+  }
 
   if (customerPhone && sendWhatsApp) {
     OpenWAService.dispatchInvoice(createdBill.id).catch(err => {
@@ -489,6 +534,39 @@ apiRouter.post('/bills', async (req: Request, res: Response) => {
   }
 
   res.status(201).json(createdBill);
+});
+
+apiRouter.post('/bills/:id/void', (req: Request, res: Response) => {
+  const { voidedBy, reason, managerPin } = req.body;
+  if (!reason || !reason.trim()) {
+    return res.status(400).json({ error: 'Cancellation / void reason is required' });
+  }
+
+  const actor = voidedBy || { userId: 'staff-cashier-01', userName: 'Cashier', role: 'cashier' };
+  let approval: { userId: string; userName: string; role: any } | undefined;
+
+  // Manager PIN approval required if actor is not manager or owner
+  if (actor.role !== 'manager' && actor.role !== 'owner') {
+    if (!managerPin) {
+      return res.status(403).json({ error: 'Manager PIN approval is required to void bills' });
+    }
+    const pinCheck = store.verifyPin(managerPin, ['manager', 'owner']);
+    if (!pinCheck.success || !pinCheck.user) {
+      return res.status(401).json({ error: pinCheck.error || 'Invalid manager approval PIN' });
+    }
+    approval = {
+      userId: pinCheck.user.id,
+      userName: pinCheck.user.name,
+      role: pinCheck.user.role
+    };
+  }
+
+  const result = store.voidBill(req.params.id, actor, reason, approval);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  res.json({ success: true, bill: result.bill });
 });
 
 apiRouter.post('/bills/:id/send-whatsapp', async (req: Request, res: Response) => {
@@ -757,17 +835,41 @@ apiRouter.post('/delivery-partners/simulate/:partner', (req: Request, res: Respo
   res.status(201).json({ success: true, order });
 });
 
-// Live Inbound Webhook for delivery partners (Zomato / Swiggy Webhook receiver)
+// Live Inbound Webhook for delivery partners with HMAC-SHA256 & Idempotency (Phase 3)
 apiRouter.post('/webhooks/aggregators/:partner', (req: Request, res: Response) => {
   const partner = req.params.partner as DeliveryPartner;
-  console.log(`[Aggregator Webhook] Inbound order payload from ${partner.toUpperCase()}:`, req.body);
-  const order = store.simulatePartnerOrder(partner, req.body);
+  const signature = req.headers['x-aggregator-signature'] as string | undefined;
+  const eventId = (req.headers['x-event-id'] as string) || req.body?.eventId || `evt_${Date.now()}`;
+  const eventType = (req.body?.eventType || 'ORDER_PLACED') as 'ORDER_PLACED' | 'ORDER_CANCELLED' | 'RIDER_ASSIGNED';
+
+  const result = AggregatorSecurityService.processInboundWebhook(
+    partner,
+    eventId,
+    eventType,
+    req.body,
+    signature,
+    JSON.stringify(req.body)
+  );
+
+  if (result.status === 'signature_mismatch') {
+    return res.status(401).json({ error: result.error, status: result.status });
+  }
+
+  if (result.status === 'duplicate_skipped') {
+    return res.status(200).json({ status: 'duplicate_skipped', message: 'Event already processed' });
+  }
+
   res.status(200).json({
     status: 'acknowledged',
-    orderId: order.partnerOrderId,
-    restaurantOrderId: order.id,
+    orderId: result.order?.partnerOrderId,
+    restaurantOrderId: result.order?.id,
     timestamp: new Date().toISOString()
   });
+});
+
+apiRouter.get('/webhooks/logs', (req: Request, res: Response) => {
+  const limit = Number(req.query.limit) || 50;
+  res.json(store.getWebhookLogs(limit));
 });
 
 apiRouter.patch('/orders/:id/partner-status', (req: Request, res: Response) => {
@@ -777,5 +879,412 @@ apiRouter.patch('/orders/:id/partner-status', (req: Request, res: Response) => {
     return res.status(404).json({ error: 'Order not found' });
   }
   res.json(order);
+});
+
+// ==========================================
+// 13. Staff RBAC, Authentication & Audit Logs (Phase 1)
+// ==========================================
+apiRouter.get('/staff', (req: Request, res: Response) => {
+  res.json(store.getStaffUsers());
+});
+
+apiRouter.post('/auth/login', (req: Request, res: Response) => {
+  const { username, pin } = req.body;
+  const staff = store.getStaffUsers().find(u => u.username === username && u.pin === pin && u.isActive);
+  if (!staff) {
+    return res.status(401).json({ error: 'Invalid username or PIN' });
+  }
+  store.addAuditLog({
+    userId: staff.id,
+    userName: staff.name,
+    role: staff.role,
+    action: 'STAFF_LOGIN',
+    entityType: 'staff',
+    entityId: staff.id
+  });
+  res.json({ success: true, user: staff });
+});
+
+apiRouter.post('/auth/verify-pin', (req: Request, res: Response) => {
+  const { pin, requiredRoles } = req.body;
+  const verification = store.verifyPin(pin, requiredRoles);
+  if (!verification.success) {
+    return res.status(401).json({ error: verification.error });
+  }
+  res.json({ success: true, user: verification.user });
+});
+
+apiRouter.get('/audit-logs', (req: Request, res: Response) => {
+  const filter = {
+    action: req.query.action as string,
+    role: req.query.role as any,
+    limit: Number(req.query.limit) || 100
+  };
+  res.json(store.getAuditLogs(filter));
+});
+
+// ==========================================
+// 14. Offline Sync & Idempotent Ingestion (Phase 2)
+// ==========================================
+apiRouter.post('/orders/sync-offline', (req: Request, res: Response) => {
+  const { orders } = req.body;
+  if (!orders || !Array.isArray(orders)) {
+    return res.status(400).json({ error: 'Array of orders is required' });
+  }
+  const synced: Order[] = [];
+  for (const o of orders) {
+    const existing = store.getOrders().find(order => order.clientTxId && order.clientTxId === o.clientTxId);
+    if (existing) {
+      synced.push(existing);
+      continue;
+    }
+    const created = store.createOrder({ ...o, isOffline: true, syncedAt: new Date().toISOString() });
+    synced.push(created);
+  }
+  res.json({ success: true, count: synced.length, orders: synced });
+});
+
+apiRouter.post('/bills/sync-offline', (req: Request, res: Response) => {
+  const { bills } = req.body;
+  if (!bills || !Array.isArray(bills)) {
+    return res.status(400).json({ error: 'Array of bills is required' });
+  }
+  const synced: Bill[] = [];
+  for (const b of bills) {
+    const existing = store.getBills().find(bill => bill.clientTxId && bill.clientTxId === b.clientTxId);
+    if (existing) {
+      synced.push(existing);
+      continue;
+    }
+    const created = store.createBill({ ...b, isOffline: true, syncedAt: new Date().toISOString() });
+    synced.push(created);
+  }
+  res.json({ success: true, count: synced.length, bills: synced });
+});
+
+// ==========================================
+// 15. Raw ESC/POS Thermal Printing (Phase 2)
+// ==========================================
+apiRouter.post('/printer/escpos/bill', (req: Request, res: Response) => {
+  const { bill, profile: billProfile, options } = req.body;
+  const currentProfile = billProfile || store.getProfile();
+  const rawBytes = EscPosService.generateBillEscPos(bill, currentProfile, options);
+  res.json({
+    format: 'escpos',
+    paperWidth: options?.paperWidth || '80mm',
+    length: rawBytes.length,
+    base64: rawBytes.toString('base64'),
+    hex: rawBytes.toString('hex')
+  });
+});
+
+apiRouter.post('/printer/escpos/kot', (req: Request, res: Response) => {
+  const { order, options } = req.body;
+  const rawBytes = EscPosService.generateKotEscPos(order, options);
+  res.json({
+    format: 'escpos-kot',
+    paperWidth: options?.paperWidth || '80mm',
+    length: rawBytes.length,
+    base64: rawBytes.toString('base64'),
+    hex: rawBytes.toString('hex')
+  });
+});
+
+// ==========================================
+// 16. Payment Gateway & Reconciliation (Phase 3)
+// ==========================================
+apiRouter.post('/payments/initiate', (req: Request, res: Response) => {
+  const { billId, orderId, amount, provider = 'razorpay', method, payerPhone, idempotencyKey } = req.body;
+  if (!amount || amount <= 0) {
+    return res.status(400).json({ error: 'Valid payment amount is required' });
+  }
+  const payment = AggregatorSecurityService.initiatePayment({
+    billId,
+    orderId,
+    amount,
+    provider: provider as PaymentProvider,
+    method,
+    payerPhone,
+    idempotencyKey
+  });
+  res.status(201).json({ success: true, payment });
+});
+
+apiRouter.post('/payments/:id/confirm', (req: Request, res: Response) => {
+  const { providerTxId } = req.body;
+  const result = AggregatorSecurityService.confirmPayment(req.params.id, providerTxId);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+  res.json(result);
+});
+
+apiRouter.post('/payments/:id/refund', (req: Request, res: Response) => {
+  const { amount, reason, managerPin } = req.body;
+  if (!amount || !reason || !managerPin) {
+    return res.status(400).json({ error: 'Amount, reason, and managerPin are required' });
+  }
+  const pinCheck = store.verifyPin(managerPin, ['manager', 'owner']);
+  if (!pinCheck.success || !pinCheck.user) {
+    return res.status(401).json({ error: 'Invalid Manager PIN for refund' });
+  }
+  const result = AggregatorSecurityService.refundPayment(
+    req.params.id,
+    Number(amount),
+    reason,
+    { userId: pinCheck.user.id, userName: pinCheck.user.name, role: pinCheck.user.role }
+  );
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+  res.json(result);
+});
+
+apiRouter.get('/payments', (req: Request, res: Response) => {
+  res.json(store.getPayments());
+});
+
+apiRouter.get('/reports/reconciliation', (req: Request, res: Response) => {
+  res.json(store.getAggregatorReconciliation());
+});
+
+// ==========================================
+// 17. Procurement & Advanced Inventory (Phase 4)
+// ==========================================
+apiRouter.get('/inventory/suppliers', (req: Request, res: Response) => {
+  res.json(store.getSuppliers());
+});
+
+apiRouter.post('/inventory/suppliers', (req: Request, res: Response) => {
+  const { name, contactPerson, phone, email, gstin, address, categoriesSupplied, paymentTerms } = req.body;
+  if (!name || !phone) {
+    return res.status(400).json({ error: 'Supplier name and phone are required' });
+  }
+  const newSupplier: Supplier = {
+    id: `sup_${uuidv4().substring(0, 8)}`,
+    name,
+    contactPerson: contactPerson || name,
+    phone,
+    email: email || '',
+    gstin,
+    address,
+    categoriesSupplied: categoriesSupplied || ['General'],
+    paymentTerms: paymentTerms || 'net_15',
+    active: true,
+    createdAt: new Date().toISOString()
+  };
+  const created = store.createSupplier(newSupplier);
+  res.status(201).json(created);
+});
+
+apiRouter.put('/inventory/suppliers/:id', (req: Request, res: Response) => {
+  const updated = store.updateSupplier(req.params.id, req.body);
+  if (!updated) {
+    return res.status(404).json({ error: 'Supplier not found' });
+  }
+  res.json(updated);
+});
+
+apiRouter.delete('/inventory/suppliers/:id', (req: Request, res: Response) => {
+  const success = store.deleteSupplier(req.params.id);
+  res.json({ success });
+});
+
+apiRouter.get('/inventory/purchase-orders', (req: Request, res: Response) => {
+  res.json(store.getPurchaseOrders());
+});
+
+apiRouter.post('/inventory/purchase-orders', (req: Request, res: Response) => {
+  const { supplierId, items, notes, expectedDeliveryDate, status } = req.body;
+  if (!supplierId || !items || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'supplierId and at least one order item are required' });
+  }
+
+  const supplier = store.getSupplierById(supplierId);
+  const supplierName = supplier ? supplier.name : 'Unknown Supplier';
+
+  let subtotal = 0;
+  const formattedItems = items.map((i: any) => {
+    const totalCost = Number(i.quantity) * Number(i.unitCost);
+    subtotal += totalCost;
+    return {
+      rawMaterialId: i.rawMaterialId,
+      rawMaterialName: i.rawMaterialName,
+      quantity: Number(i.quantity),
+      unit: i.unit,
+      unitCost: Number(i.unitCost),
+      totalCost
+    };
+  });
+
+  const tax = Math.round(subtotal * 0.05 * 100) / 100;
+  const totalAmount = Math.round((subtotal + tax) * 100) / 100;
+  const count = store.getPurchaseOrders().length + 1;
+  const poNumber = `PO-2026-${String(count).padStart(3, '0')}`;
+
+  const po: PurchaseOrder = {
+    id: `po_${uuidv4().substring(0, 8)}`,
+    poNumber,
+    supplierId,
+    supplierName,
+    status: status || 'ordered',
+    items: formattedItems,
+    subtotal,
+    tax,
+    totalAmount,
+    expectedDeliveryDate,
+    notes,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  const created = store.createPurchaseOrder(po);
+  res.status(201).json(created);
+});
+
+apiRouter.post('/inventory/purchase-orders/:id/receive', (req: Request, res: Response) => {
+  const { receivedBy } = req.body;
+  const result = InventoryCostingService.processGoodsReceived(
+    req.params.id,
+    receivedBy || 'Storekeeper'
+  );
+
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  res.json(result);
+});
+
+apiRouter.post('/inventory/purchase-orders/:id/cancel', (req: Request, res: Response) => {
+  const po = store.getPurchaseOrderById(req.params.id);
+  if (!po) {
+    return res.status(404).json({ error: 'Purchase Order not found' });
+  }
+  if (po.status === 'received') {
+    return res.status(400).json({ error: 'Cannot cancel an already received Purchase Order' });
+  }
+
+  const updated = store.updatePurchaseOrder(po.id, {
+    status: 'cancelled',
+    updatedAt: new Date().toISOString()
+  });
+
+  res.json({ success: true, po: updated });
+});
+
+apiRouter.get('/inventory/wastage', (req: Request, res: Response) => {
+  res.json(store.getWastageLogs());
+});
+
+apiRouter.post('/inventory/wastage', (req: Request, res: Response) => {
+  const { rawMaterialId, quantity, reason, notes, loggedBy, managerPin } = req.body;
+  if (!rawMaterialId || !quantity || !reason) {
+    return res.status(400).json({ error: 'rawMaterialId, quantity, and reason are required' });
+  }
+
+  const result = InventoryCostingService.logWastage({
+    rawMaterialId,
+    quantity: Number(quantity),
+    reason,
+    notes,
+    loggedBy: loggedBy || 'Staff',
+    managerPin
+  });
+
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  res.status(201).json(result);
+});
+
+apiRouter.get('/inventory/recipe-variance', (req: Request, res: Response) => {
+  const report = InventoryCostingService.getRecipeVarianceReport();
+  res.json(report);
+});
+
+// ==========================================
+// 18. Advanced KDS Course Sequencing & Waiter Assistance (Phase 5)
+// ==========================================
+apiRouter.post('/orders/:orderId/items/:itemId/fire', (req: Request, res: Response) => {
+  const result = KdsService.fireItem(req.params.orderId, req.params.itemId);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+  res.json(result);
+});
+
+apiRouter.post('/orders/:orderId/courses/:course/fire', (req: Request, res: Response) => {
+  const result = KdsService.fireCourse(req.params.orderId, req.params.course as CourseType);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+  res.json(result);
+});
+
+apiRouter.get('/reports/kds-performance', (req: Request, res: Response) => {
+  const report = KdsService.getKdsPerformanceMetrics();
+  res.json(report);
+});
+
+apiRouter.get('/waiter-calls', (req: Request, res: Response) => {
+  res.json(store.getWaiterCalls());
+});
+
+apiRouter.post('/waiter-calls', (req: Request, res: Response) => {
+  const { tableId, tableNumber, type, message } = req.body;
+  if (!tableNumber || !type) {
+    return res.status(400).json({ error: 'tableNumber and type are required' });
+  }
+  const call = KdsService.createWaiterCall({
+    tableId: tableId || 'tbl_direct',
+    tableNumber,
+    type,
+    message
+  });
+  res.status(201).json(call);
+});
+
+apiRouter.post('/waiter-calls/:id/resolve', (req: Request, res: Response) => {
+  const { assignedWaiter } = req.body;
+  const result = KdsService.resolveWaiterCall(req.params.id, assignedWaiter);
+  if (!result.success) {
+    return res.status(404).json({ error: result.error });
+  }
+  res.json(result);
+});
+
+// ==========================================
+// 19. Customer Loyalty & Multi-Concept Configuration (Phase 6)
+// ==========================================
+apiRouter.get('/loyalty/settings', (req: Request, res: Response) => {
+  res.json(LoyaltyEngineService.getSettings());
+});
+
+apiRouter.put('/loyalty/settings', (req: Request, res: Response) => {
+  const updated = LoyaltyEngineService.updateSettings(req.body);
+  res.json(updated);
+});
+
+apiRouter.post('/loyalty/redeem', (req: Request, res: Response) => {
+  const { customerId, pointsToRedeem, billTotal } = req.body;
+  if (!customerId || pointsToRedeem === undefined || billTotal === undefined) {
+    return res.status(400).json({ error: 'customerId, pointsToRedeem and billTotal are required' });
+  }
+  const result = LoyaltyEngineService.validateAndRedeemPoints(customerId, Number(pointsToRedeem), Number(billTotal));
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+  res.json(result);
+});
+
+apiRouter.get('/concepts/preset/:type', (req: Request, res: Response) => {
+  const preset = LoyaltyEngineService.getConceptPreset(req.params.type as BusinessType);
+  res.json(preset);
+});
+
+apiRouter.get('/public/tokens', (req: Request, res: Response) => {
+  res.json(LoyaltyEngineService.getPublicOrderTokens());
 });
 

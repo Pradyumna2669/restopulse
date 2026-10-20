@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CustomerProfile, DeliveryPartnerConfig, DeliveryPartner } from '../types';
+import { CustomerProfile, DeliveryPartnerConfig, DeliveryPartner, ReconciliationReport, WebhookDeliveryLog } from '../types';
 import { ApiService } from '../services/api';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -23,7 +23,13 @@ import {
   Copy,
   Check,
   Users,
-  X
+  X,
+  Receipt,
+  ShieldCheck,
+  TrendingUp,
+  RefreshCw,
+  AlertTriangle,
+  Scale
 } from 'lucide-react';
 
 interface CustomerCrmViewProps {
@@ -37,9 +43,12 @@ export const CustomerCrmView: React.FC<CustomerCrmViewProps> = ({
   onSelectCustomer,
   onOrderSimulated
 }) => {
-  const [activeTab, setActiveTab] = useState<'directory' | 'partners'>('directory');
+  const [activeTab, setActiveTab] = useState<'directory' | 'partners' | 'reconciliation'>('directory');
   const [customers, setCustomers] = useState<CustomerProfile[]>([]);
   const [deliveryPartners, setDeliveryPartners] = useState<DeliveryPartnerConfig[]>([]);
+  const [reconciliationReport, setReconciliationReport] = useState<ReconciliationReport | null>(null);
+  const [webhookLogs, setWebhookLogs] = useState<WebhookDeliveryLog[]>([]);
+  const [isLoadingRecon, setIsLoadingRecon] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerProfile | null>(null);
   const [selectedTierFilter, setSelectedTierFilter] = useState<string>('all');
@@ -62,6 +71,28 @@ export const CustomerCrmView: React.FC<CustomerCrmViewProps> = ({
     loadCustomers();
     loadDeliveryPartners();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'reconciliation') {
+      loadReconciliation();
+    }
+  }, [activeTab]);
+
+  const loadReconciliation = async () => {
+    setIsLoadingRecon(true);
+    try {
+      const [report, logs] = await Promise.all([
+        ApiService.getReconciliationReport(),
+        ApiService.getWebhookLogs(50)
+      ]);
+      setReconciliationReport(report);
+      setWebhookLogs(logs);
+    } catch (err) {
+      console.error('Failed to load reconciliation report:', err);
+    } finally {
+      setIsLoadingRecon(false);
+    }
+  };
 
   const loadCustomers = async () => {
     try {
@@ -302,6 +333,25 @@ export const CustomerCrmView: React.FC<CustomerCrmViewProps> = ({
               {activePartnersCount} Active
             </span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('reconciliation')}
+            className={`px-4 py-2 rounded-xl font-bold transition-all flex items-center space-x-2 shrink-0 ${
+              activeTab === 'reconciliation'
+                ? 'bg-stone-900 text-white shadow-sm'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-canvas-100'
+            }`}
+          >
+            <Scale className="w-4 h-4" />
+            <span>Payout Reconciliation & Webhooks</span>
+            <span
+              className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
+                activeTab === 'reconciliation' ? 'bg-stone-800 text-stone-200' : 'bg-canvas-200 text-stone-600'
+              }`}
+            >
+              Finance
+            </span>
+          </button>
         </div>
 
         {activeTab === 'directory' && (
@@ -315,6 +365,18 @@ export const CustomerCrmView: React.FC<CustomerCrmViewProps> = ({
           >
             <UserPlus className="w-4 h-4" />
             <span>Enroll New Guest</span>
+          </Button>
+        )}
+
+        {activeTab === 'reconciliation' && (
+          <Button
+            variant="secondary"
+            onClick={loadReconciliation}
+            disabled={isLoadingRecon}
+            className="flex items-center space-x-1.5 shrink-0 text-xs"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoadingRecon ? 'animate-spin' : ''}`} />
+            <span>Refresh Reconciliation</span>
           </Button>
         )}
       </div>
@@ -913,6 +975,297 @@ export const CustomerCrmView: React.FC<CustomerCrmViewProps> = ({
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 3: AGGREGATOR PAYOUT RECONCILIATION & WEBHOOK SECURITY AUDIT */}
+      {/* ========================================================================= */}
+      {activeTab === 'reconciliation' && (
+        <div className="space-y-6">
+          {/* Top Info Banner */}
+          <div className="bg-stone-900 text-stone-100 p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+            <div className="space-y-1">
+              <div className="flex items-center space-x-2">
+                <ShieldCheck className="w-5 h-5 text-terracotta-400" />
+                <h3 className="text-sm font-bold tracking-tight text-white">
+                  Financial Reconciliation & Aggregator Ledger Engine
+                </h3>
+              </div>
+              <p className="text-xs text-stone-400 max-w-2xl">
+                Real-time calculation of platform commissions, statutory 18% GST on aggregator service fees, 
+                and 1% Tax Collected at Source (TCS) under CGST Section 52. Verified against HMAC-SHA256 authenticated webhooks.
+              </p>
+            </div>
+            <div className="flex items-center space-x-2 text-xs">
+              <span className="px-2.5 py-1 rounded-full bg-stone-800 border border-stone-700 text-stone-300 font-mono">
+                {webhookLogs.length} Webhook Events Logged
+              </span>
+            </div>
+          </div>
+
+          {/* KPI Ribbon */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="flex items-center space-x-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-canvas-200 text-stone-800 flex items-center justify-center shrink-0">
+                <DollarSign className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[11px] font-semibold text-stone-500 uppercase tracking-wider block">
+                  Gross Online Orders
+                </span>
+                <span className="text-xl font-black text-stone-900 font-mono">
+                  {currencySymbol}{reconciliationReport?.totalGrossOnlineSales.toLocaleString('en-IN') || '0'}
+                </span>
+              </div>
+            </Card>
+
+            <Card className="flex items-center space-x-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-rose-50 text-rose-700 border border-rose-200 flex items-center justify-center shrink-0">
+                <Receipt className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[11px] font-semibold text-stone-500 uppercase tracking-wider block">
+                  Platform Commissions
+                </span>
+                <span className="text-xl font-black text-stone-900 font-mono">
+                  -{currencySymbol}{reconciliationReport?.totalCommissionsDeducted.toLocaleString('en-IN') || '0'}
+                </span>
+              </div>
+            </Card>
+
+            <Card className="flex items-center space-x-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center shrink-0">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[11px] font-semibold text-stone-500 uppercase tracking-wider block">
+                  GST & 1% TCS Deductions
+                </span>
+                <span className="text-xl font-black text-stone-900 font-mono">
+                  -{currencySymbol}
+                  {(
+                    (reconciliationReport?.totalGstOnCommissions || 0) +
+                    (reconciliationReport?.partnerBreakdown?.reduce((s, p) => s + p.tcsAmount, 0) || 0)
+                  ).toLocaleString('en-IN', { maximumFractionDigits: 1 })}
+                </span>
+              </div>
+            </Card>
+
+            <Card className="flex items-center space-x-3.5 bg-sage-50/50 border-sage-200">
+              <div className="w-11 h-11 rounded-2xl bg-sage-100 text-sage-800 border border-sage-300 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[11px] font-semibold text-sage-700 uppercase tracking-wider block">
+                  Net Receivable Payout
+                </span>
+                <span className="text-xl font-black text-sage-900 font-mono">
+                  {currencySymbol}{reconciliationReport?.totalNetPayoutReceivable.toLocaleString('en-IN', { maximumFractionDigits: 1 }) || '0'}
+                </span>
+              </div>
+            </Card>
+          </div>
+
+          {/* Channel Sales Distribution Bar */}
+          {reconciliationReport?.cashVsOnlineSplit && (
+            <Card className="space-y-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-stone-800">Channel Revenue Allocation</span>
+                <span className="text-stone-500 font-mono text-[11px]">
+                  Cash: {currencySymbol}{reconciliationReport.cashVsOnlineSplit.cashSales} | 
+                  Direct Online: {currencySymbol}{reconciliationReport.cashVsOnlineSplit.onlineGatewaySales} | 
+                  Aggregator Net: {currencySymbol}{reconciliationReport.cashVsOnlineSplit.aggregatorNetSales.toFixed(1)}
+                </span>
+              </div>
+              <div className="w-full bg-canvas-200 h-3 rounded-full overflow-hidden flex">
+                {(() => {
+                  const cash = reconciliationReport.cashVsOnlineSplit.cashSales;
+                  const direct = reconciliationReport.cashVsOnlineSplit.onlineGatewaySales;
+                  const agg = reconciliationReport.cashVsOnlineSplit.aggregatorNetSales;
+                  const total = (cash + direct + agg) || 1;
+                  const cashPct = Math.round((cash / total) * 100);
+                  const directPct = Math.round((direct / total) * 100);
+                  const aggPct = 100 - cashPct - directPct;
+                  return (
+                    <>
+                      <div style={{ width: `${cashPct}%` }} className="bg-stone-700 h-full" title={`Cash: ${cashPct}%`} />
+                      <div style={{ width: `${directPct}%` }} className="bg-sage-600 h-full" title={`Online Direct: ${directPct}%`} />
+                      <div style={{ width: `${aggPct}%` }} className="bg-terracotta-500 h-full" title={`Aggregators: ${aggPct}%`} />
+                    </>
+                  );
+                })()}
+              </div>
+              <div className="flex items-center space-x-6 text-[11px] text-stone-600 pt-1">
+                <div className="flex items-center space-x-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-stone-700 inline-block"></span>
+                  <span>In-House Cash</span>
+                </div>
+                <div className="flex items-center space-x-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-sage-600 inline-block"></span>
+                  <span>Direct UPI / Gateway</span>
+                </div>
+                <div className="flex items-center space-x-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-terracotta-500 inline-block"></span>
+                  <span>Aggregator Net Payout</span>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Partner Payout Reconciliation Ledger Table */}
+          <Card className="p-0 overflow-hidden">
+            <div className="p-4 border-b border-canvas-border flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-bold text-stone-900">Partner Settlement Breakdown</h4>
+                <p className="text-xs text-stone-500">Itemized commission fees and net settlement per channel</p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-canvas-100/60 text-stone-600 border-b border-canvas-border uppercase font-mono text-[10px]">
+                  <tr>
+                    <th className="py-3 px-4">Aggregator Channel</th>
+                    <th className="py-3 px-3 text-right">Orders</th>
+                    <th className="py-3 px-3 text-right">Gross Sales</th>
+                    <th className="py-3 px-3 text-right">Commission Fee</th>
+                    <th className="py-3 px-3 text-right">18% GST on Fee</th>
+                    <th className="py-3 px-3 text-right">1% TCS</th>
+                    <th className="py-3 px-4 text-right font-bold text-stone-800">Net Receivable</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-canvas-border font-mono">
+                  {reconciliationReport?.partnerBreakdown && reconciliationReport.partnerBreakdown.length > 0 ? (
+                    reconciliationReport.partnerBreakdown.map(entry => (
+                      <tr key={entry.partner} className="hover:bg-canvas-50/70 transition-colors">
+                        <td className="py-3 px-4 font-sans font-medium text-stone-900 flex items-center space-x-2">
+                          <span>
+                            {entry.partner === 'zomato' ? '🔴' : entry.partner === 'swiggy' ? '🟠' : entry.partner === 'ondc' ? '🔵' : '🟣'}
+                          </span>
+                          <span>{entry.partnerName}</span>
+                        </td>
+                        <td className="py-3 px-3 text-right text-stone-700">{entry.orderCount}</td>
+                        <td className="py-3 px-3 text-right text-stone-900 font-bold">
+                          {currencySymbol}{entry.grossSales.toLocaleString('en-IN')}
+                        </td>
+                        <td className="py-3 px-3 text-right text-rose-600">
+                          -{currencySymbol}{entry.commissionAmount.toFixed(1)}
+                        </td>
+                        <td className="py-3 px-3 text-right text-amber-600">
+                          -{currencySymbol}{entry.gstOnCommission.toFixed(1)}
+                        </td>
+                        <td className="py-3 px-3 text-right text-amber-600">
+                          -{currencySymbol}{entry.tcsAmount.toFixed(1)}
+                        </td>
+                        <td className="py-3 px-4 text-right font-black text-sage-800">
+                          {currencySymbol}{entry.netPayout.toFixed(1)}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={7} className="text-center py-6 text-stone-400 font-sans">
+                        No aggregator orders recorded for this settlement period yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* Webhook Delivery & HMAC Signature Verification Audit Trail */}
+          <Card className="p-0 overflow-hidden">
+            <div className="p-4 border-b border-canvas-border flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-bold text-stone-900">Inbound Webhooks Security Audit</h4>
+                <p className="text-xs text-stone-500">HMAC-SHA256 signature verification & deduplication event trail</p>
+              </div>
+              <span className="text-[11px] font-mono text-stone-500 bg-canvas-100 px-2 py-0.5 rounded-full">
+                Last {webhookLogs.length} events
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-canvas-100/60 text-stone-600 border-b border-canvas-border uppercase font-mono text-[10px]">
+                  <tr>
+                    <th className="py-3 px-4">Event ID / Partner</th>
+                    <th className="py-3 px-3">HMAC Signature</th>
+                    <th className="py-3 px-3">Status</th>
+                    <th className="py-3 px-3">Linked Order</th>
+                    <th className="py-3 px-4 text-right">Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-canvas-border font-mono text-[11px]">
+                  {webhookLogs.length > 0 ? (
+                    webhookLogs.map(log => (
+                      <tr key={log.id} className="hover:bg-canvas-50/70 transition-colors">
+                        <td className="py-3 px-4 font-sans">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs uppercase font-bold text-stone-800">{log.partner}</span>
+                            <span className="font-mono text-[10px] text-stone-400 truncate max-w-[120px]">{log.eventId}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-3">
+                          {log.signatureValid ? (
+                            <span className="inline-flex items-center space-x-1 text-sage-700 font-sans font-semibold text-[11px]">
+                              <ShieldCheck className="w-3.5 h-3.5 text-sage-600" />
+                              <span>Verified HMAC</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center space-x-1 text-rose-700 font-sans font-semibold text-[11px]">
+                              <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                              <span>Invalid Signature</span>
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3">
+                          {log.status === 'processed' && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sage-50 text-sage-700 border border-sage-200">
+                              ✓ Processed
+                            </span>
+                          )}
+                          {log.status === 'duplicate_skipped' && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                              Idempotent Skipped
+                            </span>
+                          )}
+                          {log.status === 'signature_mismatch' && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                              Rejected (HMAC)
+                            </span>
+                          )}
+                          {log.status === 'failed' && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                              Failed
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 font-sans text-stone-700">
+                          {log.orderId ? (
+                            <span className="font-mono text-stone-900 font-bold">{log.orderId}</span>
+                          ) : (
+                            <span className="text-stone-400">—</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right text-stone-500 font-mono text-[10px]">
+                          {new Date(log.timestamp).toLocaleTimeString()}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="text-center py-6 text-stone-400 font-sans">
+                        No inbound webhook events logged yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         </div>
       )}
     </div>
