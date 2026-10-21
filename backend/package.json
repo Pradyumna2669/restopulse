@@ -7,13 +7,18 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "tsc && node dist/server.js",
-    "test": "ts-node src/tests/phase1-security.test.ts && ts-node src/tests/phase2-pos-offline-printer.test.ts && ts-node src/tests/phase3-payments-aggregators.test.ts && ts-node src/tests/phase4-inventory-procurement.test.ts && ts-node src/tests/phase5-service-kds.test.ts && ts-node src/tests/phase6-crm-concepts.test.ts",
+    "test": "ts-node src/tests/phase1-security.test.ts && ts-node src/tests/phase2-pos-offline-printer.test.ts && ts-node src/tests/phase3-payments-aggregators.test.ts && ts-node src/tests/phase4-inventory-procurement.test.ts && ts-node src/tests/phase5-service-kds.test.ts && ts-node src/tests/phase6-crm-concepts.test.ts && ts-node src/tests/phase7-reporting-tax.test.ts && ts-node src/tests/phase8-multi-outlet.test.ts && ts-node src/tests/phase9-hardware-peripherals.test.ts && ts-node src/tests/phase10-production-hardening.test.ts",
     "test:phase1": "ts-node src/tests/phase1-security.test.ts",
     "test:phase2": "ts-node src/tests/phase2-pos-offline-printer.test.ts",
     "test:phase3": "ts-node src/tests/phase3-payments-aggregators.test.ts",
     "test:phase4": "ts-node src/tests/phase4-inventory-procurement.test.ts",
     "test:phase5": "ts-node src/tests/phase5-service-kds.test.ts",
-    "test:phase6": "ts-node src/tests/phase6-crm-concepts.test.ts"
+    "test:phase6": "ts-node src/tests/phase6-crm-concepts.test.ts",
+    "test:phase7": "ts-node src/tests/phase7-reporting-tax.test.ts",
+    "test:phase8": "ts-node src/tests/phase8-multi-outlet.test.ts",
+    "test:phase9": "ts-node src/tests/phase9-hardware-peripherals.test.ts",
+    "test:phase10": "ts-node src/tests/phase10-production-hardening.test.ts",
+    "db:restore": "ts-node src/scripts/restore.ts"
   },
   "dependencies": {
     "axios": "^1.8.1",

@@ -306,10 +306,11 @@ export class LoyaltyEngineService {
       if (o.status === 'cancelled' || o.status === 'settled') continue;
 
       const elapsedMinutes = Math.max(0, Math.floor((now - new Date(o.createdAt).getTime()) / 60000));
+      const safeOrderNumber = o.orderNumber || o.id || 'ORD-001';
       const tokenRecord: PublicOrderToken = {
         orderId: o.id,
-        orderNumber: o.orderNumber,
-        takeawayToken: o.takeawayToken || o.orderNumber.replace(/[^0-9]/g, '').slice(-3) || '001',
+        orderNumber: safeOrderNumber,
+        takeawayToken: o.takeawayToken || safeOrderNumber.replace(/[^0-9]/g, '').slice(-3) || '001',
         customerName: o.customerName,
         status: o.status === 'ready' ? 'ready' : 'preparing',
         elapsedMinutes,

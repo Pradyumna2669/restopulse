@@ -35,7 +35,19 @@ import {
   PurchaseOrderItem,
   WastageLog,
   RecipeVarianceReport,
-  WaiterCallRequest
+  WaiterCallRequest,
+  Organization,
+  Brand,
+  Outlet,
+  OutletMenuOverride,
+  EffectiveMenuItem,
+  InterStoreTransfer,
+  TransferItem,
+  TransferStatus,
+  OutletInventoryLevel,
+  MaterialStockMatrixEntry,
+  OutletRoyaltySummary,
+  ConsolidatedHqReport
 } from '../types';
 
 interface StoreData {
@@ -59,6 +71,11 @@ interface StoreData {
   purchaseOrders: PurchaseOrder[];
   wastageLogs: WastageLog[];
   waiterCalls: WaiterCallRequest[];
+  organizations: Organization[];
+  brands: Brand[];
+  outlets: Outlet[];
+  outletMenuOverrides: OutletMenuOverride[];
+  stockTransfers: InterStoreTransfer[];
 }
 
 const DATA_FILE = path.join(__dirname, 'restopulse-db.json');
@@ -172,6 +189,8 @@ const initialMenuItems: MenuItem[] = [
     foodType: 'veg',
     station: 'tandoor',
     gstRate: 5,
+    barcode: '8901030000018',
+    sku: 'SKU-PTIK-01',
     image: 'https://images.unsplash.com/photo-1567188040759-fb8a883dc6d8?auto=format&fit=crop&w=600&q=80',
     variations: [
       { id: 'v_reg', name: 'Regular (6 pcs)', price: 280 },
@@ -192,6 +211,8 @@ const initialMenuItems: MenuItem[] = [
     foodType: 'non-veg',
     station: 'kitchen',
     gstRate: 5,
+    barcode: '8901030000025',
+    sku: 'SKU-BCHK-02',
     image: 'https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?auto=format&fit=crop&w=600&q=80',
     variations: [
       { id: 'v_half', name: 'Half (2 pcs)', price: 380 },
@@ -211,6 +232,8 @@ const initialMenuItems: MenuItem[] = [
     foodType: 'veg',
     station: 'kitchen',
     gstRate: 5,
+    barcode: '8901030000032',
+    sku: 'SKU-DMAK-03',
     image: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=600&q=80',
     addons: [
       { id: 'a_cream', name: 'Double Cream Top', price: 30 }
@@ -226,6 +249,8 @@ const initialMenuItems: MenuItem[] = [
     foodType: 'veg',
     station: 'tandoor',
     gstRate: 5,
+    barcode: '8901030000049',
+    sku: 'SKU-GNAA-04',
     image: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=600&q=80',
     inStock: true
   },
@@ -238,6 +263,8 @@ const initialMenuItems: MenuItem[] = [
     foodType: 'veg',
     station: 'bar',
     gstRate: 5,
+    barcode: '8901030000056',
+    sku: 'SKU-VMOJ-05',
     image: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=600&q=80',
     inStock: true
   },
@@ -250,7 +277,43 @@ const initialMenuItems: MenuItem[] = [
     foodType: 'veg',
     station: 'dessert',
     gstRate: 5,
+    barcode: '8901030000063',
+    sku: 'SKU-GJAM-06',
     image: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=600&q=80',
+    inStock: true
+  },
+  {
+    id: 'item_pistachio_mithai',
+    categoryId: 'cat_desserts',
+    name: 'Royal Pistachio Kaju Katli',
+    description: 'Handcrafted silver-leafed cashew diamond fudges infused with Iranian pistachios (sold by weight / ₹950/kg)',
+    basePrice: 950,
+    foodType: 'veg',
+    station: 'dessert',
+    gstRate: 5,
+    barcode: '8901030001015',
+    sku: '00101',
+    isWeighed: true,
+    weightUnit: 'kg',
+    pricePerKg: 950,
+    image: 'https://images.unsplash.com/photo-1599785209707-a456fc1337bb?auto=format&fit=crop&w=600&q=80',
+    inStock: true
+  },
+  {
+    id: 'item_belgian_truffle_cake',
+    categoryId: 'cat_desserts',
+    name: 'Dark Belgian Truffle Cake',
+    description: '70% dark chocolate sponge cake layered with rich Belgian ganache (sold by weight / ₹850/kg)',
+    basePrice: 850,
+    foodType: 'egg',
+    station: 'dessert',
+    gstRate: 18,
+    barcode: '8901030001022',
+    sku: '00102',
+    isWeighed: true,
+    weightUnit: 'kg',
+    pricePerKg: 850,
+    image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=600&q=80',
     inStock: true
   }
 ];
@@ -671,6 +734,239 @@ export const initialPurchaseOrders: PurchaseOrder[] = [
   }
 ];
 
+export const DEFAULT_OUTLET_ID = 'outlet_delhi_01';
+
+export const initialOrganization: Organization = {
+  id: 'org_pulse_01',
+  name: 'RestoPulse Hospitality Group',
+  legalEntityName: 'RestoPulse Foods & Beverages Pvt. Ltd.',
+  corporateGstin: '07AAAAA0000A1Z5',
+  panNumber: 'AAAAA0000A',
+  registeredOffice: 'Express Towers, Level 14, Nariman Point, Mumbai 400021',
+  supportEmail: 'franchise@restopulse.com',
+  supportPhone: '+91 22 6600 9900',
+  defaultFranchiseRoyaltyPercent: 5.0,
+  defaultMarketingLevyPercent: 2.0,
+  currency: 'INR',
+  createdAt: '2025-01-01T00:00:00.000Z',
+  updatedAt: new Date().toISOString()
+};
+
+export const initialBrands: Brand[] = [
+  {
+    id: 'brand_tdg',
+    orgId: 'org_pulse_01',
+    name: 'The Daily Grind',
+    code: 'TDG',
+    cuisineType: 'Artisanal Coffee & Continental Bakery',
+    active: true,
+    createdAt: '2025-01-01T00:00:00.000Z'
+  }
+];
+
+export const initialOutlets: Outlet[] = [
+  {
+    id: 'outlet_delhi_01',
+    orgId: 'org_pulse_01',
+    brandId: 'brand_tdg',
+    code: 'TDG-DEL-01',
+    name: 'The Daily Grind - Connaught Place (Flagship)',
+    tier: 'flagship',
+    isFranchise: false,
+    franchiseRoyaltyPercent: 0,
+    marketingLevyPercent: 0,
+    gstin: '07AAAAA0000A1Z5',
+    fssaiNumber: '13320001000452',
+    phone: '+91 11 4152 8900',
+    email: 'delhi.flagship@restopulse.com',
+    address: {
+      street: '14/A Inner Circle, Connaught Place',
+      city: 'New Delhi',
+      state: 'Delhi',
+      pincode: '110001',
+      stateCode: '07'
+    },
+    posTerminalCount: 3,
+    active: true,
+    openingTime: '08:00',
+    closingTime: '23:00',
+    createdAt: '2025-01-01T00:00:00.000Z',
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'outlet_blr_01',
+    orgId: 'org_pulse_01',
+    brandId: 'brand_tdg',
+    code: 'TDG-BLR-01',
+    name: 'The Daily Grind - Indiranagar (Franchise)',
+    tier: 'franchise',
+    isFranchise: true,
+    franchiseOwnerName: 'Naveen Gowda',
+    franchiseContactPhone: '+91 98450 12345',
+    franchiseRoyaltyPercent: 5.0,
+    marketingLevyPercent: 2.0,
+    gstin: '29BBBBB1111B1Z2',
+    fssaiNumber: '11221002000881',
+    phone: '+91 80 4120 5544',
+    email: 'blr.indiranagar@restopulse.com',
+    address: {
+      street: '100 Feet Road, Indiranagar',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      pincode: '560038',
+      stateCode: '29'
+    },
+    posTerminalCount: 2,
+    active: true,
+    openingTime: '09:00',
+    closingTime: '23:00',
+    createdAt: '2025-06-01T00:00:00.000Z',
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'outlet_mum_01',
+    orgId: 'org_pulse_01',
+    brandId: 'brand_tdg',
+    code: 'TDG-MUM-01',
+    name: 'The Daily Grind - Bandra West (Franchise)',
+    tier: 'franchise',
+    isFranchise: true,
+    franchiseOwnerName: 'Zubin Mehta',
+    franchiseContactPhone: '+91 98200 67890',
+    franchiseRoyaltyPercent: 6.0,
+    marketingLevyPercent: 2.0,
+    gstin: '27CCCCC2222C1Z8',
+    fssaiNumber: '12720003000714',
+    phone: '+91 22 2640 1199',
+    email: 'mum.bandra@restopulse.com',
+    address: {
+      street: 'Pali Hill, Bandra West',
+      city: 'Mumbai',
+      state: 'Maharashtra',
+      pincode: '400050',
+      stateCode: '27'
+    },
+    posTerminalCount: 2,
+    active: true,
+    openingTime: '09:00',
+    closingTime: '00:00',
+    createdAt: '2025-09-01T00:00:00.000Z',
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'outlet_gurgaon_01',
+    orgId: 'org_pulse_01',
+    brandId: 'brand_tdg',
+    code: 'TDG-GUR-01',
+    name: 'The Daily Grind - Cyber Hub (Company Owned)',
+    tier: 'company_owned',
+    isFranchise: false,
+    franchiseRoyaltyPercent: 0,
+    marketingLevyPercent: 0,
+    gstin: '06DDDDD3333D1Z1',
+    fssaiNumber: '10621001000339',
+    phone: '+91 124 400 8822',
+    email: 'gurgaon.cyberhub@restopulse.com',
+    address: {
+      street: 'DLF Cyber Hub, DLF Phase 2',
+      city: 'Gurugram',
+      state: 'Haryana',
+      pincode: '122002',
+      stateCode: '06'
+    },
+    posTerminalCount: 2,
+    active: true,
+    openingTime: '08:30',
+    closingTime: '23:30',
+    createdAt: '2025-11-01T00:00:00.000Z',
+    updatedAt: new Date().toISOString()
+  }
+];
+
+export const initialOutletMenuOverrides: OutletMenuOverride[] = [
+  {
+    id: 'ovr_blr_paneer_tikka',
+    outletId: 'outlet_blr_01',
+    menuItemId: 'item_paneer_tikka',
+    priceOverride: 310,
+    updatedAt: new Date().toISOString(),
+    updatedBy: 'Naveen Gowda (Franchise Owner)'
+  },
+  {
+    id: 'ovr_mum_butter_chicken',
+    outletId: 'outlet_mum_01',
+    menuItemId: 'item_butter_chicken',
+    priceOverride: 420,
+    updatedAt: new Date().toISOString(),
+    updatedBy: 'Zubin Mehta (Franchise Owner)'
+  },
+  {
+    id: 'ovr_blr_garlic_naan',
+    outletId: 'outlet_blr_01',
+    menuItemId: 'item_garlic_naan',
+    inStockOverride: false,
+    updatedAt: new Date().toISOString(),
+    updatedBy: 'Chef Indiranagar'
+  }
+];
+
+export const initialStockTransfers: InterStoreTransfer[] = [
+  {
+    id: 'ist_01',
+    transferNumber: 'IST-2026-001',
+    sourceOutletId: 'outlet_delhi_01',
+    sourceOutletName: 'The Daily Grind - Connaught Place (Flagship)',
+    destinationOutletId: 'outlet_blr_01',
+    destinationOutletName: 'The Daily Grind - Indiranagar (Franchise)',
+    status: 'dispatched',
+    items: [
+      {
+        rawMaterialId: 'raw_paneer',
+        rawMaterialName: 'Fresh Malai Paneer',
+        unit: 'kg',
+        quantityRequested: 10,
+        quantityDispatched: 10,
+        unitCost: 320,
+        totalCost: 3200
+      },
+      {
+        rawMaterialId: 'raw_butter',
+        rawMaterialName: 'Amul Butter',
+        unit: 'kg',
+        quantityRequested: 5,
+        quantityDispatched: 5,
+        unitCost: 480,
+        totalCost: 2400
+      }
+    ],
+    subtotalCost: 5600,
+    notes: 'Urgent weekend inventory replenishment for Bangalore launch',
+    carrierName: 'Blue Dart Cold Express',
+    trackingReference: 'BD-EXP-889021',
+    vehicleNumber: 'DL-01-AB-1234',
+    requestedBy: {
+      userId: 'staff_mgr_blr',
+      userName: 'Naveen Gowda',
+      role: 'Franchise Partner',
+      timestamp: new Date(Date.now() - 36 * 3600000).toISOString()
+    },
+    approvedBy: {
+      userId: 'usr_mgr_01',
+      userName: 'Vikram Malhotra',
+      role: 'Head of Operations',
+      timestamp: new Date(Date.now() - 30 * 3600000).toISOString()
+    },
+    dispatchedBy: {
+      userId: 'usr_staff_01',
+      userName: 'Ramesh Verma',
+      role: 'Central Warehouse Keeper',
+      timestamp: new Date(Date.now() - 18 * 3600000).toISOString()
+    },
+    createdAt: new Date(Date.now() - 36 * 3600000).toISOString(),
+    updatedAt: new Date(Date.now() - 18 * 3600000).toISOString()
+  }
+];
+
 class Store {
   private data: StoreData;
 
@@ -737,6 +1033,38 @@ class Store {
         if (!parsed.waiterCalls) {
           parsed.waiterCalls = [];
         }
+        if (!parsed.organizations || parsed.organizations.length === 0) {
+          parsed.organizations = [initialOrganization];
+        }
+        if (!parsed.brands || parsed.brands.length === 0) {
+          parsed.brands = initialBrands;
+        }
+        if (!parsed.outlets || parsed.outlets.length === 0) {
+          parsed.outlets = initialOutlets;
+        }
+        if (!parsed.outletMenuOverrides || !parsed.outletMenuOverrides.some((o: any) => o.menuItemId === 'item_paneer_tikka')) {
+          parsed.outletMenuOverrides = initialOutletMenuOverrides;
+        }
+        if (!parsed.stockTransfers || !parsed.stockTransfers.some((t: any) => t.items?.some((i: any) => i.rawMaterialId === 'raw_paneer'))) {
+          parsed.stockTransfers = initialStockTransfers;
+        }
+        if (!parsed.menuItems || !parsed.menuItems.some((m: any) => m.id === 'item_pistachio_mithai')) {
+          if (!parsed.menuItems) parsed.menuItems = [];
+          for (const initItem of initialMenuItems) {
+            const existing = parsed.menuItems.find((m: any) => m.id === initItem.id);
+            if (!existing) {
+              parsed.menuItems.push({ ...initItem });
+            } else {
+              if (initItem.barcode) existing.barcode = initItem.barcode;
+              if (initItem.sku) existing.sku = initItem.sku;
+              if (initItem.isWeighed) {
+                existing.isWeighed = initItem.isWeighed;
+                existing.pricePerKg = initItem.pricePerKg;
+                existing.weightUnit = initItem.weightUnit;
+              }
+            }
+          }
+        }
         // Ensure every table has a secure qrToken
         parsed.tables = parsed.tables.map((t: RestaurantTable) => {
           if (!t.qrToken || t.qrToken.startsWith('qr_')) {
@@ -770,7 +1098,12 @@ class Store {
       suppliers: initialSuppliers,
       purchaseOrders: initialPurchaseOrders,
       wastageLogs: [],
-      waiterCalls: []
+      waiterCalls: [],
+      organizations: [initialOrganization],
+      brands: initialBrands,
+      outlets: initialOutlets,
+      outletMenuOverrides: initialOutletMenuOverrides,
+      stockTransfers: initialStockTransfers
     };
     this.save(initial);
     return initial;
@@ -793,6 +1126,15 @@ class Store {
     } catch (e) {
       console.error('Failed to save store.json:', e);
     }
+  }
+
+  reload(): StoreData {
+    this.data = this.load();
+    return this.data;
+  }
+
+  getDatabasePath(): string {
+    return DATA_FILE;
   }
 
   // Profile
@@ -2063,6 +2405,475 @@ class Store {
       return calls[idx];
     }
     return undefined;
+  }
+
+  // ==========================================
+  // Phase 8: Multi-Outlet & Franchise Master
+  // ==========================================
+
+  // 1. Organization & Brands Master
+  getOrganization(): Organization {
+    if (!this.data.organizations || this.data.organizations.length === 0) {
+      this.data.organizations = [initialOrganization];
+    }
+    return this.data.organizations[0];
+  }
+
+  updateOrganization(update: Partial<Organization>): Organization {
+    const org = this.getOrganization();
+    this.data.organizations[0] = { ...org, ...update, updatedAt: new Date().toISOString() };
+    this.save(this.data);
+    return this.data.organizations[0];
+  }
+
+  getBrands(): Brand[] {
+    if (!this.data.brands || this.data.brands.length === 0) {
+      this.data.brands = initialBrands;
+    }
+    return this.data.brands;
+  }
+
+  // 2. Outlets Directory & Management
+  getOutlets(): Outlet[] {
+    if (!this.data.outlets || this.data.outlets.length === 0) {
+      this.data.outlets = initialOutlets;
+    }
+    return this.data.outlets;
+  }
+
+  getOutletById(id: string): Outlet | undefined {
+    return this.getOutlets().find(o => o.id === id || o.code.toLowerCase() === id.toLowerCase());
+  }
+
+  createOutlet(outletData: Omit<Outlet, 'id' | 'createdAt' | 'updatedAt'>): Outlet {
+    const outlets = this.getOutlets();
+    const newOutlet: Outlet = {
+      ...outletData,
+      id: 'outlet_' + uuidv4().slice(0, 8),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    outlets.push(newOutlet);
+    this.save(this.data);
+    return newOutlet;
+  }
+
+  updateOutlet(id: string, update: Partial<Outlet>): Outlet | undefined {
+    const outlets = this.getOutlets();
+    const idx = outlets.findIndex(o => o.id === id);
+    if (idx !== -1) {
+      outlets[idx] = { ...outlets[idx], ...update, updatedAt: new Date().toISOString() };
+      this.save(this.data);
+      return outlets[idx];
+    }
+    return undefined;
+  }
+
+  // 3. Central Menu Master & Overrides
+  getOutletMenuOverrides(outletId?: string): OutletMenuOverride[] {
+    if (!this.data.outletMenuOverrides) {
+      this.data.outletMenuOverrides = initialOutletMenuOverrides;
+    }
+    if (outletId) {
+      return this.data.outletMenuOverrides.filter(o => o.outletId === outletId);
+    }
+    return this.data.outletMenuOverrides;
+  }
+
+  setOutletMenuOverride(
+    outletId: string,
+    menuItemId: string,
+    override: { priceOverride?: number; inStockOverride?: boolean; gstRateOverride?: number; isExcluded?: boolean; updatedBy?: string }
+  ): OutletMenuOverride {
+    const overrides = this.getOutletMenuOverrides();
+    const existingIdx = overrides.findIndex(o => o.outletId === outletId && o.menuItemId === menuItemId);
+    if (existingIdx !== -1) {
+      overrides[existingIdx] = {
+        ...overrides[existingIdx],
+        ...override,
+        updatedAt: new Date().toISOString()
+      };
+      this.save(this.data);
+      return overrides[existingIdx];
+    } else {
+      const newOverride: OutletMenuOverride = {
+        id: 'ovr_' + uuidv4().slice(0, 8),
+        outletId,
+        menuItemId,
+        ...override,
+        updatedAt: new Date().toISOString()
+      };
+      overrides.push(newOverride);
+      this.save(this.data);
+      return newOverride;
+    }
+  }
+
+  removeOutletMenuOverride(outletId: string, menuItemId: string): boolean {
+    const overrides = this.getOutletMenuOverrides();
+    const initialLen = overrides.length;
+    this.data.outletMenuOverrides = overrides.filter(o => !(o.outletId === outletId && o.menuItemId === menuItemId));
+    if (this.data.outletMenuOverrides.length !== initialLen) {
+      this.save(this.data);
+      return true;
+    }
+    return false;
+  }
+
+  getEffectiveMenuForOutlet(outletId: string): EffectiveMenuItem[] {
+    const baseItems = this.getMenuItems();
+    const overrides = this.getOutletMenuOverrides(outletId);
+    const overrideMap = new Map(overrides.map(o => [o.menuItemId, o]));
+
+    return baseItems.map(item => {
+      const ovr = overrideMap.get(item.id);
+      const isExcluded = ovr?.isExcluded ?? false;
+      const effectivePrice = ovr?.priceOverride !== undefined ? ovr.priceOverride : item.basePrice;
+      const effectiveStock = ovr?.inStockOverride !== undefined ? ovr.inStockOverride : item.inStock;
+      const effectiveGst = ovr?.gstRateOverride !== undefined ? ovr.gstRateOverride : item.gstRate;
+
+      return {
+        ...item,
+        basePrice: effectivePrice,
+        inStock: isExcluded ? false : effectiveStock,
+        gstRate: effectiveGst,
+        originalBasePrice: item.basePrice,
+        originalInStock: item.inStock,
+        originalGstRate: item.gstRate,
+        hasPriceOverride: ovr?.priceOverride !== undefined,
+        hasStockOverride: ovr?.inStockOverride !== undefined,
+        hasGstOverride: ovr?.gstRateOverride !== undefined,
+        effectivePrice,
+        outletId
+      };
+    });
+  }
+
+  // 4. Inter-Store Stock Transfers (IST) & Physical Inventory
+  getStockTransfers(filter?: { status?: TransferStatus; sourceOutletId?: string; destinationOutletId?: string }): InterStoreTransfer[] {
+    if (!this.data.stockTransfers) {
+      this.data.stockTransfers = initialStockTransfers;
+    }
+    let result = this.data.stockTransfers;
+    if (filter) {
+      if (filter.status) result = result.filter(t => t.status === filter.status);
+      if (filter.sourceOutletId) result = result.filter(t => t.sourceOutletId === filter.sourceOutletId);
+      if (filter.destinationOutletId) result = result.filter(t => t.destinationOutletId === filter.destinationOutletId);
+    }
+    return result;
+  }
+
+  getStockTransferById(id: string): InterStoreTransfer | undefined {
+    return this.getStockTransfers().find(t => t.id === id || t.transferNumber === id);
+  }
+
+  createStockTransfer(transfer: InterStoreTransfer): InterStoreTransfer {
+    if (!this.data.stockTransfers) {
+      this.data.stockTransfers = [];
+    }
+    this.data.stockTransfers.unshift(transfer);
+    this.save(this.data);
+    return transfer;
+  }
+
+  updateStockTransfer(id: string, update: Partial<InterStoreTransfer>): InterStoreTransfer | undefined {
+    const transfers = this.getStockTransfers();
+    const idx = transfers.findIndex(t => t.id === id || t.transferNumber === id);
+    if (idx !== -1) {
+      transfers[idx] = { ...transfers[idx], ...update, updatedAt: new Date().toISOString() };
+      this.save(this.data);
+      return transfers[idx];
+    }
+    return undefined;
+  }
+
+  getMaterialStockForOutlet(rawMaterialId: string, outletId: string): number {
+    const mat = this.data.inventory.find(m => m.id === rawMaterialId);
+    if (!mat) return 0;
+    if (mat.outletStocks && mat.outletStocks[outletId] !== undefined) {
+      return mat.outletStocks[outletId];
+    }
+    if (outletId === DEFAULT_OUTLET_ID) {
+      return mat.currentStock;
+    }
+    const defaultPortion = Math.max(5, Math.round(mat.currentStock * 0.4));
+    if (!mat.outletStocks) mat.outletStocks = {};
+    mat.outletStocks[outletId] = defaultPortion;
+    return defaultPortion;
+  }
+
+  dispatchStockTransfer(
+    transferId: string,
+    dispatchedBy: { userId: string; userName: string; role: string },
+    carrierDetails?: { carrierName?: string; trackingReference?: string; vehicleNumber?: string }
+  ): InterStoreTransfer | undefined {
+    const transfer = this.getStockTransferById(transferId);
+    if (!transfer) return undefined;
+    if (transfer.status === 'dispatched' || transfer.status === 'received' || transfer.status === 'cancelled') {
+      throw new Error(`Transfer ${transfer.transferNumber} is already in '${transfer.status}' status`);
+    }
+
+    // Deduct stock from source outlet
+    for (const item of transfer.items) {
+      const qtyToDispatch = item.quantityDispatched ?? item.quantityRequested;
+      item.quantityDispatched = qtyToDispatch;
+      const mat = this.data.inventory.find(m => m.id === item.rawMaterialId);
+      if (mat) {
+        if (!mat.outletStocks) mat.outletStocks = {};
+        const currentSrc = this.getMaterialStockForOutlet(item.rawMaterialId, transfer.sourceOutletId);
+        mat.outletStocks[transfer.sourceOutletId] = Math.max(0, Number((currentSrc - qtyToDispatch).toFixed(2)));
+        if (transfer.sourceOutletId === DEFAULT_OUTLET_ID) {
+          mat.currentStock = mat.outletStocks[transfer.sourceOutletId];
+        }
+      }
+    }
+
+    transfer.status = 'dispatched';
+    transfer.dispatchedBy = {
+      ...dispatchedBy,
+      timestamp: new Date().toISOString()
+    };
+    if (carrierDetails) {
+      if (carrierDetails.carrierName) transfer.carrierName = carrierDetails.carrierName;
+      if (carrierDetails.trackingReference) transfer.trackingReference = carrierDetails.trackingReference;
+      if (carrierDetails.vehicleNumber) transfer.vehicleNumber = carrierDetails.vehicleNumber;
+    }
+    transfer.updatedAt = new Date().toISOString();
+    this.save(this.data);
+    return transfer;
+  }
+
+  receiveStockTransfer(
+    transferId: string,
+    receivedBy: { userId: string; userName: string; role: string },
+    receivedItems?: { rawMaterialId: string; quantityReceived: number; varianceReason?: string }[]
+  ): InterStoreTransfer | undefined {
+    const transfer = this.getStockTransferById(transferId);
+    if (!transfer) return undefined;
+    if (transfer.status !== 'dispatched') {
+      throw new Error(`Transfer ${transfer.transferNumber} must be in 'dispatched' status before receiving (current: '${transfer.status}')`);
+    }
+
+    // Inward stock into destination outlet
+    for (const item of transfer.items) {
+      const rec = receivedItems?.find(r => r.rawMaterialId === item.rawMaterialId);
+      const qtyReceived = rec ? rec.quantityReceived : (item.quantityDispatched ?? item.quantityRequested);
+      item.quantityReceived = qtyReceived;
+      if (rec?.varianceReason) item.varianceReason = rec.varianceReason;
+
+      const mat = this.data.inventory.find(m => m.id === item.rawMaterialId);
+      if (mat) {
+        if (!mat.outletStocks) mat.outletStocks = {};
+        const currentDest = this.getMaterialStockForOutlet(item.rawMaterialId, transfer.destinationOutletId);
+        mat.outletStocks[transfer.destinationOutletId] = Number((currentDest + qtyReceived).toFixed(2));
+        if (transfer.destinationOutletId === DEFAULT_OUTLET_ID) {
+          mat.currentStock = mat.outletStocks[transfer.destinationOutletId];
+        }
+      }
+    }
+
+    transfer.status = 'received';
+    transfer.receivedBy = {
+      ...receivedBy,
+      timestamp: new Date().toISOString()
+    };
+    transfer.updatedAt = new Date().toISOString();
+    this.save(this.data);
+    return transfer;
+  }
+
+  cancelStockTransfer(
+    transferId: string,
+    cancelledBy: { userId: string; userName: string; role: string; reason: string }
+  ): InterStoreTransfer | undefined {
+    const transfer = this.getStockTransferById(transferId);
+    if (!transfer) return undefined;
+    if (transfer.status === 'received' || transfer.status === 'reconciled') {
+      throw new Error(`Cannot cancel transfer ${transfer.transferNumber} that is already received/reconciled`);
+    }
+
+    // If already dispatched, revert stock back to source outlet
+    if (transfer.status === 'dispatched') {
+      for (const item of transfer.items) {
+        const qtyDispatched = item.quantityDispatched ?? item.quantityRequested;
+        const mat = this.data.inventory.find(m => m.id === item.rawMaterialId);
+        if (mat) {
+          if (!mat.outletStocks) mat.outletStocks = {};
+          const currentSrc = this.getMaterialStockForOutlet(item.rawMaterialId, transfer.sourceOutletId);
+          mat.outletStocks[transfer.sourceOutletId] = Number((currentSrc + qtyDispatched).toFixed(2));
+          if (transfer.sourceOutletId === DEFAULT_OUTLET_ID) {
+            mat.currentStock = mat.outletStocks[transfer.sourceOutletId];
+          }
+        }
+      }
+    }
+
+    transfer.status = 'cancelled';
+    transfer.cancelledBy = {
+      ...cancelledBy,
+      timestamp: new Date().toISOString()
+    };
+    transfer.updatedAt = new Date().toISOString();
+    this.save(this.data);
+    return transfer;
+  }
+
+  // 5. System-Wide Raw Material Matrix
+  getMaterialStockMatrix(): MaterialStockMatrixEntry[] {
+    const outlets = this.getOutlets();
+    const inventory = this.data.inventory || [];
+
+    return inventory.map(mat => {
+      const outletLevels: OutletInventoryLevel[] = outlets.map(outlet => {
+        const stock = this.getMaterialStockForOutlet(mat.id, outlet.id);
+        return {
+          outletId: outlet.id,
+          outletName: outlet.name,
+          outletCity: outlet.address.city,
+          currentStock: stock,
+          reorderLevel: mat.reorderLevel,
+          isLowStock: stock <= mat.reorderLevel
+        };
+      });
+
+      const totalNetworkStock = outletLevels.reduce((sum, o) => sum + o.currentStock, 0);
+
+      return {
+        rawMaterialId: mat.id,
+        rawMaterialName: mat.name,
+        category: mat.category,
+        unit: mat.unit,
+        costPerUnit: mat.costPerUnit,
+        totalNetworkStock: Number(totalNetworkStock.toFixed(2)),
+        outlets: outletLevels
+      };
+    });
+  }
+
+  // 6. Consolidated Headquarters Report & Royalty Engine
+  getConsolidatedHqReport(period?: string): ConsolidatedHqReport {
+    const org = this.getOrganization();
+    const outlets = this.getOutlets();
+    const bills = this.data.bills || [];
+
+    const benchmarkData: Record<string, { grossSales: number; orderCount: number; grossMarginPercent: number }> = {
+      outlet_blr_01: { grossSales: 184500, orderCount: 142, grossMarginPercent: 68.5 },
+      outlet_mum_01: { grossSales: 242000, orderCount: 178, grossMarginPercent: 71.2 },
+      outlet_gurgaon_01: { grossSales: 118000, orderCount: 94, grossMarginPercent: 66.0 }
+    };
+
+    const outletSummaries: OutletRoyaltySummary[] = outlets.map(outlet => {
+      const outletBills = bills.filter(b => {
+        if (b.status === 'cancelled') return false;
+        if (b.outletId) return b.outletId === outlet.id;
+        return outlet.id === DEFAULT_OUTLET_ID;
+      });
+
+      let grossSales = 0;
+      let netSales = 0;
+      let orderCount = 0;
+      let grossProfit = 0;
+      let grossMarginPercent = 0;
+
+      if (outletBills.length > 0) {
+        grossSales = outletBills.reduce((sum, b) => sum + (b.subtotal || b.total), 0);
+        const discounts = outletBills.reduce((sum, b) => sum + (b.discountAmount || 0), 0);
+        netSales = Math.max(0, grossSales - discounts);
+        orderCount = outletBills.length;
+        const estimatedCost = netSales * 0.30;
+        grossProfit = Number((netSales - estimatedCost).toFixed(2));
+        grossMarginPercent = netSales > 0 ? Number(((grossProfit / netSales) * 100).toFixed(1)) : 70.0;
+      } else if (benchmarkData[outlet.id]) {
+        const bench = benchmarkData[outlet.id];
+        grossSales = bench.grossSales;
+        netSales = Math.round(bench.grossSales * 0.94);
+        orderCount = bench.orderCount;
+        grossMarginPercent = bench.grossMarginPercent;
+        grossProfit = Number((netSales * (grossMarginPercent / 100)).toFixed(2));
+      }
+
+      const royaltyPercent = outlet.isFranchise ? outlet.franchiseRoyaltyPercent : 0;
+      const royaltyFee = Number((netSales * (royaltyPercent / 100)).toFixed(2));
+
+      const marketingLevyPercent = outlet.isFranchise ? outlet.marketingLevyPercent : 0;
+      const marketingLevyFee = Number((netSales * (marketingLevyPercent / 100)).toFixed(2));
+
+      const totalFranchisePayable = Number((royaltyFee + marketingLevyFee).toFixed(2));
+
+      return {
+        outletId: outlet.id,
+        outletCode: outlet.code,
+        outletName: outlet.name,
+        tier: outlet.tier,
+        isFranchise: outlet.isFranchise,
+        city: outlet.address.city,
+        orderCount,
+        grossSales: Number(grossSales.toFixed(2)),
+        netSales: Number(netSales.toFixed(2)),
+        grossProfit: Number(grossProfit.toFixed(2)),
+        grossMarginPercent,
+        royaltyPercent,
+        royaltyFee,
+        marketingLevyPercent,
+        marketingLevyFee,
+        totalFranchisePayable
+      };
+    });
+
+    const totalGrossRevenue = outletSummaries.reduce((sum, o) => sum + o.grossSales, 0);
+    const totalNetSales = outletSummaries.reduce((sum, o) => sum + o.netSales, 0);
+    const totalOrdersCount = outletSummaries.reduce((sum, o) => sum + o.orderCount, 0);
+    const averageOrderValue = totalOrdersCount > 0 ? Number((totalGrossRevenue / totalOrdersCount).toFixed(2)) : 0;
+    const networkGrossProfit = outletSummaries.reduce((sum, o) => sum + o.grossProfit, 0);
+    const totalEstimatedFoodCost = Number((totalNetSales - networkGrossProfit).toFixed(2));
+    const networkGrossMarginPercent = totalNetSales > 0 ? Number(((networkGrossProfit / totalNetSales) * 100).toFixed(1)) : 70;
+    const totalFranchiseRoyaltiesEarned = outletSummaries.reduce((sum, o) => sum + o.royaltyFee, 0);
+    const totalMarketingLevyCollected = outletSummaries.reduce((sum, o) => sum + o.marketingLevyFee, 0);
+    const combinedEnterpriseFee = Number((totalFranchiseRoyaltiesEarned + totalMarketingLevyCollected).toFixed(2));
+
+    const byRevenue = [...outletSummaries]
+      .sort((a, b) => b.grossSales - a.grossSales)
+      .map(o => ({ outletId: o.outletId, outletName: o.outletName, grossSales: o.grossSales }));
+
+    const byOrderVolume = [...outletSummaries]
+      .sort((a, b) => b.orderCount - a.orderCount)
+      .map(o => ({ outletId: o.outletId, outletName: o.outletName, orderCount: o.orderCount }));
+
+    const byGrossMargin = [...outletSummaries]
+      .sort((a, b) => b.grossMarginPercent - a.grossMarginPercent)
+      .map(o => ({ outletId: o.outletId, outletName: o.outletName, grossMarginPercent: o.grossMarginPercent }));
+
+    return {
+      generatedAt: new Date().toISOString(),
+      period: period || 'Current Operational Month (M-T-D)',
+      organization: {
+        name: org.name,
+        legalEntityName: org.legalEntityName,
+        corporateGstin: org.corporateGstin
+      },
+      totalOutletsCount: outlets.length,
+      activeOutletsCount: outlets.filter(o => o.active).length,
+      franchiseOutletsCount: outlets.filter(o => o.isFranchise).length,
+      companyOwnedCount: outlets.filter(o => !o.isFranchise).length,
+      networkSummary: {
+        totalGrossRevenue: Number(totalGrossRevenue.toFixed(2)),
+        totalNetSales: Number(totalNetSales.toFixed(2)),
+        totalOrdersCount,
+        averageOrderValue,
+        totalEstimatedFoodCost,
+        networkGrossProfit: Number(networkGrossProfit.toFixed(2)),
+        networkGrossMarginPercent,
+        totalFranchiseRoyaltiesEarned: Number(totalFranchiseRoyaltiesEarned.toFixed(2)),
+        totalMarketingLevyCollected: Number(totalMarketingLevyCollected.toFixed(2)),
+        combinedEnterpriseFee
+      },
+      outletRankings: {
+        byRevenue,
+        byOrderVolume,
+        byGrossMargin
+      },
+      outletBreakdown: outletSummaries
+    };
   }
 }
 

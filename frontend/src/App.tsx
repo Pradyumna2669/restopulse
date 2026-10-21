@@ -40,6 +40,8 @@ import { DispatchRidersView } from './views/DispatchRidersView';
 import { ReservationsWaitlistView } from './views/ReservationsWaitlistView';
 import { CashRegisterView } from './views/CashRegisterView';
 import { WaiterCompanionView } from './views/WaiterCompanionView';
+import { MultiOutletHqView } from './views/MultiOutletHqView';
+import { HardwarePeripheralsView } from './views/HardwarePeripheralsView';
 
 // POS Components & Modals
 import { MenuGrid } from './components/MenuGrid';
@@ -345,6 +347,46 @@ export const App: React.FC = () => {
           selectedVariation: variation,
           selectedAddons: addons,
           station: item.station
+        }
+      ];
+    });
+  };
+
+  const handleAddToCartFromHardware = (
+    item: MenuItem,
+    quantity: number = 1,
+    customPrice?: number,
+    weight?: number,
+    weightUnit?: 'g' | 'kg'
+  ) => {
+    const isWeighed = item.isWeighed || (weight !== undefined && weight > 0);
+    const cartItemId = isWeighed ? `${item.id}_weighed_${Date.now()}` : `${item.id}_base_`;
+    const unitPrice = customPrice !== undefined ? customPrice : item.basePrice;
+
+    setCart(prev => {
+      if (!isWeighed) {
+        const existing = prev.find(i => i.cartItemId === cartItemId);
+        if (existing) {
+          return prev.map(i =>
+            i.cartItemId === cartItemId ? { ...i, quantity: i.quantity + quantity } : i
+          );
+        }
+      }
+      return [
+        ...prev,
+        {
+          cartItemId,
+          menuItemId: item.id,
+          name: isWeighed && weight
+            ? `${item.name} (${weight}${weightUnit || 'kg'})`
+            : item.name,
+          quantity,
+          unitPrice,
+          station: item.station,
+          isWeighed,
+          measuredWeight: weight,
+          weightUnit,
+          barcodeScanned: true
         }
       ];
     });
@@ -825,6 +867,28 @@ export const App: React.FC = () => {
               profile={profile}
               currencySymbol={profile.currencySymbol}
               onSelectBillForView={bill => setActiveBillForReceipt(bill)}
+            />
+          )}
+
+          {/* Multi-Outlet & Franchise Master (Full-Page View - Phase 8) */}
+          {activeNavView === 'multi-outlet' && (
+            <MultiOutletHqView
+              currencySymbol={profile.currencySymbol}
+              onOutletSwitched={() => {
+                refreshMenu();
+                refreshOrders();
+                refreshInventory();
+              }}
+            />
+          )}
+
+          {/* Hardware Peripherals & POS Integrations (Full-Page View - Phase 9) */}
+          {activeNavView === 'hardware' && (
+            <HardwarePeripheralsView
+              menuItems={menuItems}
+              onAddToCart={handleAddToCartFromHardware}
+              cartCount={cart.length}
+              cartTotal={cart.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0)}
             />
           )}
 

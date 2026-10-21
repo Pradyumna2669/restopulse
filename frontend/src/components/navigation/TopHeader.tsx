@@ -70,6 +70,16 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
       title: 'Sales analytics & tax reports',
       subtitle: 'Daily gross revenue, channel distributions, top sellers and GSTR-1 summaries.'
     },
+    'multi-outlet': {
+      breadcrumb: `${prefix} / MULTI-OUTLET HQ`,
+      title: 'Multi-Outlet & Franchise Master',
+      subtitle: 'Enterprise store network, central menu overrides, inter-store stock transfers and brand royalty analytics.'
+    },
+    hardware: {
+      breadcrumb: `${prefix} / HARDWARE PERIPHERALS`,
+      title: 'Digital Scales, Barcode Scanners & VFD Displays',
+      subtitle: 'RS-232 serial weighing scales, global barcode listener, and customer-facing 2x20 pole displays.'
+    },
     kds: {
       breadcrumb: `${prefix} / KITCHEN PRODUCTION`,
       title: 'Kitchen Display System (KDS)',

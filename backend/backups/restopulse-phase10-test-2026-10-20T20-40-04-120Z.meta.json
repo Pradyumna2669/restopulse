@@ -1,0 +1,18 @@
+{
+  "id": "bck_57d98704-1",
+  "filename": "restopulse-phase10-test-2026-10-20T20-40-04-120Z.json.gz",
+  "filepath": "D:\\New folder\\restopulse\\backend\\backups\\restopulse-phase10-test-2026-10-20T20-40-04-120Z.json.gz",
+  "createdAt": "2026-10-20T20:40:04.121Z",
+  "sizeBytes": 37910,
+  "uncompressedSizeBytes": 539548,
+  "sha256Checksum": "7f2044dba331b4b390c6a3e0edfaa5be7c48e8a4a9a5a842d5646500e90e4b03",
+  "tag": "phase10-test",
+  "recordCounts": {
+    "orders": 38,
+    "bills": 78,
+    "menuItems": 8,
+    "outlets": 12,
+    "customers": 4,
+    "inventory": 10
+  }
+}

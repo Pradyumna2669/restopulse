@@ -16,7 +16,9 @@ import {
   Smartphone,
   X,
   MessageCircle,
-  Tv
+  Tv,
+  Building2,
+  Scale
 } from 'lucide-react';
 import { RestaurantProfile } from '../../types';
 
@@ -28,6 +30,8 @@ export type ActiveNavView =
   | 'inventory'
   | 'customers'
   | 'reports'
+  | 'multi-outlet'
+  | 'hardware'
   | 'kds'
   | 'dispatch'
   | 'reservations'
@@ -80,7 +84,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'tables', label: 'Tables & QR', icon: QrCode },
     { id: 'inventory', label: 'Inventory', icon: Boxes, badge: lowStockCount, badgeColor: 'bg-amber-500 text-stone-900' },
     { id: 'customers', label: 'Customers', icon: Users },
-    { id: 'reports', label: 'Reports', icon: BarChart3 }
+    { id: 'reports', label: 'Reports', icon: BarChart3 },
+    { id: 'multi-outlet', label: 'Multi-Outlet HQ', icon: Building2 }
   ];
 
   const operationsNavItems: Array<{
@@ -94,7 +99,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'waiter', label: 'Waiter Companion', icon: Smartphone },
     { id: 'dispatch', label: 'Dispatch & Riders', icon: Bike, badge: activeDispatchCount, badgeColor: 'bg-blue-500 text-white' },
     { id: 'reservations', label: 'Reservations', icon: Calendar, badge: waitingGuestsCount, badgeColor: 'bg-purple-500 text-white' },
-    { id: 'cash-register', label: 'Cash Register', icon: Wallet }
+    { id: 'cash-register', label: 'Cash Register', icon: Wallet },
+    { id: 'hardware', label: 'Hardware Peripherals', icon: Scale }
   ];
 
   const handleNavClick = (view: ActiveNavView) => {

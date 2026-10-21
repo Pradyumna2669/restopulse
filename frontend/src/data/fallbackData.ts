@@ -170,6 +170,8 @@ export const fallbackMenuItems: MenuItem[] = [
     foodType: 'veg',
     station: 'bar',
     gstRate: 5,
+    barcode: '8901030000056',
+    sku: 'SKU-VMOJ-05',
     image: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=600&q=80',
     inStock: true
   },
@@ -182,7 +184,43 @@ export const fallbackMenuItems: MenuItem[] = [
     foodType: 'veg',
     station: 'dessert',
     gstRate: 5,
+    barcode: '8901030000063',
+    sku: 'SKU-GJAM-06',
     image: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=600&q=80',
+    inStock: true
+  },
+  {
+    id: 'item_pistachio_mithai',
+    categoryId: 'cat_desserts',
+    name: 'Royal Pistachio Kaju Katli',
+    description: 'Handcrafted silver-leafed cashew diamond fudges infused with Iranian pistachios (sold by weight / ₹950/kg)',
+    basePrice: 950,
+    foodType: 'veg',
+    station: 'dessert',
+    gstRate: 5,
+    barcode: '8901030001015',
+    sku: '00101',
+    isWeighed: true,
+    weightUnit: 'kg',
+    pricePerKg: 950,
+    image: 'https://images.unsplash.com/photo-1599785209707-a456fc1337bb?auto=format&fit=crop&w=600&q=80',
+    inStock: true
+  },
+  {
+    id: 'item_belgian_truffle_cake',
+    categoryId: 'cat_desserts',
+    name: 'Dark Belgian Truffle Cake',
+    description: '70% dark chocolate sponge cake layered with rich Belgian ganache (sold by weight / ₹850/kg)',
+    basePrice: 850,
+    foodType: 'egg',
+    station: 'dessert',
+    gstRate: 18,
+    barcode: '8901030001022',
+    sku: '00102',
+    isWeighed: true,
+    weightUnit: 'kg',
+    pricePerKg: 850,
+    image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=600&q=80',
     inStock: true
   }
 ];

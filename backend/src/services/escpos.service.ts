@@ -1,4 +1,4 @@
-import { Bill, Order, RestaurantProfile, EscPosOptions } from '../types';
+import { Bill, Order, RestaurantProfile, EscPosOptions, EodZReportData } from '../types';
 
 export class EscPosService {
   // ESC/POS Command Constants
@@ -197,6 +197,144 @@ export class EscPosService {
 
     chunks.push(Buffer.from(`${separator}\n\n\n`, 'ascii'));
     if (options.cutPaper) {
+      chunks.push(this.CMD_CUT_PAPER);
+    }
+
+    return Buffer.concat(chunks);
+  }
+
+  /**
+   * Generates raw ESC/POS byte buffer for an End-of-Day (EOD) Z-Report
+   */
+  public static generateZReportEscPos(
+    report: EodZReportData,
+    profile: RestaurantProfile,
+    options: EscPosOptions = { paperWidth: '80mm', cutPaper: true }
+  ): Buffer {
+    const lineWidth = options.paperWidth === '58mm' ? 32 : 48;
+    const separator = '-'.repeat(lineWidth);
+    const doubleSep = '='.repeat(lineWidth);
+    const chunks: Buffer[] = [];
+
+    // 1. Initialize
+    chunks.push(this.CMD_INIT);
+
+    // 2. Store Header (Centered, Bold)
+    chunks.push(this.CMD_ALIGN_CENTER);
+    chunks.push(this.CMD_BOLD_ON);
+    chunks.push(this.CMD_DOUBLE_SIZE);
+    chunks.push(Buffer.from(`${profile.name}\n`, 'ascii'));
+    chunks.push(this.CMD_NORMAL_SIZE);
+    chunks.push(this.CMD_BOLD_OFF);
+
+    if (profile.address) {
+      chunks.push(Buffer.from(`${profile.address}\n`, 'ascii'));
+    }
+    if (profile.phone) {
+      chunks.push(Buffer.from(`Phone: ${profile.phone}\n`, 'ascii'));
+    }
+    if (profile.gstin) {
+      chunks.push(Buffer.from(`GSTIN: ${profile.gstin} | FSSAI: ${profile.fssai || 'N/A'}\n`, 'ascii'));
+    }
+
+    chunks.push(Buffer.from(`${doubleSep}\n`, 'ascii'));
+    chunks.push(this.CMD_BOLD_ON);
+    chunks.push(Buffer.from(`*** DAILY SALES CLOSING Z-REPORT ***\n`, 'ascii'));
+    chunks.push(this.CMD_BOLD_OFF);
+    chunks.push(Buffer.from(`${doubleSep}\n`, 'ascii'));
+
+    // 3. Metadata
+    chunks.push(this.CMD_ALIGN_LEFT);
+    chunks.push(Buffer.from(this.formatTwoCol(`Report #: ${report.reportNumber}`, new Date(report.generatedAt).toLocaleDateString(), lineWidth) + '\n', 'ascii'));
+    chunks.push(Buffer.from(this.formatTwoCol(`Shift ID: ${report.shiftInfo.shiftId}`, `Status: ${report.shiftInfo.status.toUpperCase()}`, lineWidth) + '\n', 'ascii'));
+    chunks.push(Buffer.from(`Manager: ${report.shiftInfo.managerName}\n`, 'ascii'));
+
+    // 4. Sales & Tax Summary
+    chunks.push(Buffer.from(`${separator}\n`, 'ascii'));
+    chunks.push(this.CMD_ALIGN_CENTER);
+    chunks.push(this.CMD_BOLD_ON);
+    chunks.push(Buffer.from(`[ SALES & TAX RECONCILIATION ]\n`, 'ascii'));
+    chunks.push(this.CMD_BOLD_OFF);
+    chunks.push(this.CMD_ALIGN_LEFT);
+    chunks.push(Buffer.from(`${separator}\n`, 'ascii'));
+
+    chunks.push(Buffer.from(this.formatTwoCol('Gross Sales:', `Rs.${report.financialSummary.grossSales.toFixed(2)}`, lineWidth) + '\n', 'ascii'));
+    if (report.financialSummary.discounts > 0) {
+      chunks.push(Buffer.from(this.formatTwoCol('Total Discounts:', `-Rs.${report.financialSummary.discounts.toFixed(2)}`, lineWidth) + '\n', 'ascii'));
+    }
+    chunks.push(Buffer.from(this.formatTwoCol('Net Taxable Sales:', `Rs.${report.financialSummary.taxableSales.toFixed(2)}`, lineWidth) + '\n', 'ascii'));
+    chunks.push(Buffer.from(this.formatTwoCol('Central GST (2.5%):', `Rs.${report.financialSummary.cgst.toFixed(2)}`, lineWidth) + '\n', 'ascii'));
+    chunks.push(Buffer.from(this.formatTwoCol('State GST (2.5%):', `Rs.${report.financialSummary.sgst.toFixed(2)}`, lineWidth) + '\n', 'ascii'));
+    if (report.financialSummary.roundOff !== 0) {
+      chunks.push(Buffer.from(this.formatTwoCol('Round Off:', `Rs.${report.financialSummary.roundOff.toFixed(2)}`, lineWidth) + '\n', 'ascii'));
+    }
+
+    chunks.push(Buffer.from(`${doubleSep}\n`, 'ascii'));
+    chunks.push(this.CMD_BOLD_ON);
+    chunks.push(this.CMD_DOUBLE_SIZE);
+    chunks.push(Buffer.from(this.formatTwoCol('NET TOTAL:', `Rs.${report.financialSummary.netTotal.toFixed(2)}`, Math.floor(lineWidth / 2)) + '\n', 'ascii'));
+    chunks.push(this.CMD_NORMAL_SIZE);
+    chunks.push(this.CMD_BOLD_OFF);
+    chunks.push(Buffer.from(`${doubleSep}\n`, 'ascii'));
+
+    // 5. Payment Tenders
+    chunks.push(this.CMD_ALIGN_CENTER);
+    chunks.push(this.CMD_BOLD_ON);
+    chunks.push(Buffer.from(`[ PAYMENT TENDER BREAKDOWN ]\n`, 'ascii'));
+    chunks.push(this.CMD_BOLD_OFF);
+    chunks.push(this.CMD_ALIGN_LEFT);
+    chunks.push(Buffer.from(`${separator}\n`, 'ascii'));
+
+    chunks.push(Buffer.from(this.formatTwoCol(`Cash (${report.tenderBreakdown.cash.count}):`, `Rs.${report.tenderBreakdown.cash.amount.toFixed(2)}`, lineWidth) + '\n', 'ascii'));
+    chunks.push(Buffer.from(this.formatTwoCol(`UPI / QR (${report.tenderBreakdown.upi.count}):`, `Rs.${report.tenderBreakdown.upi.amount.toFixed(2)}`, lineWidth) + '\n', 'ascii'));
+    chunks.push(Buffer.from(this.formatTwoCol(`Cards (${report.tenderBreakdown.card.count}):`, `Rs.${report.tenderBreakdown.card.amount.toFixed(2)}`, lineWidth) + '\n', 'ascii'));
+    if (report.tenderBreakdown.aggregators.total > 0) {
+      chunks.push(Buffer.from(this.formatTwoCol('Aggregators (Online):', `Rs.${report.tenderBreakdown.aggregators.total.toFixed(2)}`, lineWidth) + '\n', 'ascii'));
+    }
+
+    // 6. Cash Drawer Audit
+    chunks.push(Buffer.from(`${separator}\n`, 'ascii'));
+    chunks.push(this.CMD_ALIGN_CENTER);
+    chunks.push(this.CMD_BOLD_ON);
+    chunks.push(Buffer.from(`[ CASH DRAWER CLOSING AUDIT ]\n`, 'ascii'));
+    chunks.push(this.CMD_BOLD_OFF);
+    chunks.push(this.CMD_ALIGN_LEFT);
+    chunks.push(Buffer.from(`${separator}\n`, 'ascii'));
+
+    chunks.push(Buffer.from(this.formatTwoCol('Opening Float (+):', `Rs.${report.cashDrawerAudit.openingFloat.toFixed(2)}`, lineWidth) + '\n', 'ascii'));
+    chunks.push(Buffer.from(this.formatTwoCol('Cash Sales (+):', `Rs.${report.cashDrawerAudit.cashSales.toFixed(2)}`, lineWidth) + '\n', 'ascii'));
+    chunks.push(Buffer.from(this.formatTwoCol('Petty Paid Out (-):', `Rs.${report.cashDrawerAudit.pettyExpensesTotal.toFixed(2)}`, lineWidth) + '\n', 'ascii'));
+    chunks.push(Buffer.from(this.formatTwoCol('Expected in Drawer:', `Rs.${report.cashDrawerAudit.expectedCash.toFixed(2)}`, lineWidth) + '\n', 'ascii'));
+    chunks.push(Buffer.from(this.formatTwoCol('Actual Counted:', `Rs.${report.cashDrawerAudit.actualCashCounted.toFixed(2)}`, lineWidth) + '\n', 'ascii'));
+    
+    chunks.push(this.CMD_BOLD_ON);
+    const discSign = report.cashDrawerAudit.discrepancy >= 0 ? '+' : '';
+    chunks.push(Buffer.from(this.formatTwoCol('Discrepancy (Over/Short):', `${discSign}Rs.${report.cashDrawerAudit.discrepancy.toFixed(2)} [${report.cashDrawerAudit.auditStatus.toUpperCase()}]`, lineWidth) + '\n', 'ascii'));
+    chunks.push(this.CMD_BOLD_OFF);
+
+    // 7. Audit & Exceptions
+    chunks.push(Buffer.from(`${separator}\n`, 'ascii'));
+    chunks.push(this.CMD_ALIGN_CENTER);
+    chunks.push(this.CMD_BOLD_ON);
+    chunks.push(Buffer.from(`[ INVOICES & EXCEPTIONS ]\n`, 'ascii'));
+    chunks.push(this.CMD_BOLD_OFF);
+    chunks.push(this.CMD_ALIGN_LEFT);
+    chunks.push(Buffer.from(`${separator}\n`, 'ascii'));
+
+    chunks.push(Buffer.from(this.formatTwoCol('Settled Invoices:', `${report.financialSummary.billsCount} Bills`, lineWidth) + '\n', 'ascii'));
+    chunks.push(Buffer.from(this.formatTwoCol('Voided / Cancelled:', `${report.financialSummary.voidedCount} (Rs.${report.financialSummary.voidedAmount.toFixed(2)})`, lineWidth) + '\n', 'ascii'));
+
+    // 8. Signature lines
+    chunks.push(Buffer.from(`${doubleSep}\n\n`, 'ascii'));
+    chunks.push(Buffer.from(`Cashier Signature: _________________________\n\n`, 'ascii'));
+    chunks.push(Buffer.from(`Manager Signature: _________________________\n\n`, 'ascii'));
+
+    chunks.push(this.CMD_ALIGN_CENTER);
+    chunks.push(Buffer.from(`*** END OF DAILY AUDIT ***\n\n\n`, 'ascii'));
+
+    // 9. Cut paper
+    if (options.cutPaper) {
+      chunks.push(Buffer.from('\n\n\n'));
       chunks.push(this.CMD_CUT_PAPER);
     }
 

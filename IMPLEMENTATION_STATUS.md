@@ -38,7 +38,7 @@
 | **KDS & Service Engine** | Multi-Course Hold/Fire + Waiter Assistance + Station Metrics | Real-time timers, Web Audio Chimes, KPI reports |
 | **Concept & Loyalty Engine**| Preset Reconfigurator + Tier Multipliers + TV Token Feed | 6 Concept Presets, 4 Tiers, Public Token Feed |
 | **WhatsApp Automation** | OpenWA Gateway (`http://localhost:2785`) | Offline fallback + auto-reconnect |
-| **Automated Verification** | TypeScript Compiler (`tsc`), Node/ts-node Test Runner | Strict TypeCheck + 131 Automated Tests |
+| **Automated Verification** | TypeScript Compiler (`tsc`), Node/ts-node Test Runner | Strict TypeCheck + 402 Automated Tests (10 Phases) |
 
 ### Visual Architecture & Theme Tokens
 - **Navigation Sidebar**: Deep Dark Olive / Charcoal (`#161E16`, `#1B241A`)
@@ -92,7 +92,7 @@ Status Vocabulary:
 | 27 | **Executive Overview Dashboard** | Implemented — Untested | `App.tsx` | `GET /api/profile`, `GET /api/menu`, `GET /api/orders` | Manual UI render confirmed |
 | 28 | **Menu Management & Pricing** | Implemented — Untested | `App.tsx` (Menu Tab) | `GET /api/menu`, `POST /api/menu/items` | Verified in previous sessions |
 | 29 | **Floor Plan Matrix & Tables** | Implemented — Untested | `App.tsx` (Floor Plan Tab) | `GET /api/tables`, `POST /api/tables/transfer` | Cryptographic QR token generator active |
-| 30 | **Reports, Tax Ledger & Z-Report**| Implemented — Untested | `App.tsx` (Reports Tab) | `GET /api/reports/day-end`, `GET /api/bills` | CGST/SGST ledger active |
+| 30 | **Reports, Tax Ledger & Z-Report**| Verified | `ReportsAnalyticsView.tsx` | `GET /api/reports/*`, `POST /api/printer/escpos/z-report` | 27/27 Unit & integration tests passing |
 | 31 | **Restaurant Profile & Settings** | Implemented — Untested | `App.tsx` (Settings Tab) | `GET /api/profile`, `PUT /api/profile` | Multi-concept switch active |
 | 32 | **Aggregator Inbound & Simulator** | Verified | `CustomerCrmView.tsx` | `POST /api/webhooks/aggregators/:partner` | Simulator fires Zomato/Swiggy orders |
 | 33 | **OpenWA WhatsApp Engine** | Implemented — Untested | Status indicator in header | `backend/src/services/openwa.service.ts` | Graceful fallback when port 2785 offline |
@@ -180,81 +180,92 @@ Status Vocabulary:
 
 ---
 
-### PHASE 7 — Reporting, Tax & Business Intelligence (`Ready for Execution`)
+### PHASE 7 — Reporting, Tax & Business Intelligence (`Verified`)
 Comprehensive revenue intelligence, sales velocity analytics, server attribution, statutory tax compliance, and daily cash closing reconciliation.
 
-- [ ] **Part 7.1: Category-Wise & Hourly Sales Heatmap Analytics**
-  - [ ] Implement `GET /api/reports/sales-hourly`: 24-hour order distribution curve tracking order count, gross sales, and average ticket size.
-  - [ ] Implement `GET /api/reports/category-performance`: Category contribution breakdown (volume percentage, gross revenue, food cost margin).
-  - [ ] Add visual interactive hourly heatmap and category contribution bar in `ReportsAnalyticsView.tsx`.
-- [ ] **Part 7.2: Staff Sales Contribution & Discount Attribution**
-  - [ ] Implement `GET /api/reports/staff-sales`: Per-server sales volume, table turns, and payment tender collections.
-  - [ ] Implement `GET /api/reports/discount-audit`: Comprehensive audit ledger of discounts given, high discount manager sign-offs (> ₹200), and top discount reasons.
-  - [ ] Render staff performance leaderboard and discount audit log in `ReportsAnalyticsView.tsx`.
-- [ ] **Part 7.3: Statutory GSTR-1 Tax Ledger & HSN/SAC Breakdown**
-  - [ ] Implement `GET /api/reports/gstr-1`: Statutory GST compliance ledger breaking down CGST (2.5%), SGST (2.5%), IGST (5%), and taxable turnover.
-  - [ ] Classify turnover under SAC 996331 (Restaurant dining services) vs SAC 996332 (Takeaway / delivery food sales).
-  - [ ] Provide 1-click exportable GSTR-1 JSON and CSV formats for Indian GST portal filing.
-- [ ] **Part 7.4: End-of-Day (EOD) Z-Report & Cash Closing Audit**
-  - [ ] Implement `GET /api/reports/eod-z-report`: Daily closing summary consolidating opening cash float, total cash collected, UPI/card sales, petty expenses, voided bills, and net cash drawer discrepancy.
-  - [ ] Generate binary ESC/POS 80mm Z-Report receipt slip (`POST /api/printer/escpos/z-report`) for hardware thermal printing.
-  - [ ] Automated verification suite: Create `backend/src/tests/phase7-reporting-tax.test.ts` and verify.
+- [x] **Part 7.1: Category-Wise & Hourly Sales Heatmap Analytics**
+  - [x] Implement `GET /api/reports/sales-hourly`: 24-hour order distribution curve tracking order count, gross sales, average ticket size, and intensity levels.
+  - [x] Implement `GET /api/reports/category-performance`: Category contribution breakdown (volume percentage, gross revenue, food cost margin).
+  - [x] Add visual interactive hourly heatmap and category contribution bars in `ReportsAnalyticsView.tsx`.
+- [x] **Part 7.2: Staff Sales Contribution & Discount Attribution**
+  - [x] Implement `GET /api/reports/staff-sales`: Per-server sales volume, table turns, and payment tender collections.
+  - [x] Implement `GET /api/reports/discount-audit`: Comprehensive audit ledger of discounts given, high discount manager sign-offs (> ₹200), and top discount reasons.
+  - [x] Render staff performance leaderboard and discount audit log in `ReportsAnalyticsView.tsx`.
+- [x] **Part 7.3: Statutory GSTR-1 Tax Ledger & HSN/SAC Breakdown**
+  - [x] Implement `GET /api/reports/gstr-1`: Statutory GST compliance ledger breaking down CGST (2.5%), SGST (2.5%), IGST (5%), and taxable turnover.
+  - [x] Classify turnover under SAC 996331 (Restaurant dining services) vs SAC 996332 (Takeaway / delivery food sales).
+  - [x] Provide 1-click exportable GSTR-1 JSON and CSV formats for Indian GST portal filing (`GET /api/reports/gstr-1/export`).
+- [x] **Part 7.4: End-of-Day (EOD) Z-Report & Cash Closing Audit**
+  - [x] Implement `GET /api/reports/eod-z-report`: Daily closing summary consolidating opening cash float, total cash collected, UPI/card sales, petty expenses, voided bills, and net cash drawer discrepancy.
+  - [x] Generate binary ESC/POS 80mm Z-Report receipt slip (`POST /api/printer/escpos/z-report`) for hardware thermal printing.
+  - [x] Automated verification suite: Create `backend/src/tests/phase7-reporting-tax.test.ts` and verify (27/27 passed).
 
 ---
 
-### PHASE 8 — Multi-Outlet & Franchise Master Architecture (`Scheduled`)
+### PHASE 8 — Multi-Outlet & Franchise Master Architecture (`Verified`)
 Enterprise multi-store governance, centralized catalog management, inter-outlet stock movement, and brand royalty analytics.
 
-- [ ] **Part 8.1: Central Organization & Multi-Tenant Outlet Isolation**
-  - [ ] Data models for `Organization`, `Brand`, and `Outlet` with unique store codes (e.g. `OUTLET-DELHI-01`, `OUTLET-BLR-02`).
-  - [ ] Tenant context middleware extracting `x-outlet-id` and isolating orders, inventory, and staff per outlet.
-- [ ] **Part 8.2: Central Menu Master with Outlet Overrides**
-  - [ ] Central catalog synchronization: Outlets inherit global menu items with capability to override base price and active stock status (`inStock`).
-  - [ ] Regional tax slab overrides (e.g. state-specific VAT or special cess).
-- [ ] **Part 8.3: Inter-Store Stock Transfers (IST) & In-Transit Tracking**
-  - [ ] Stock transfer workflow: `draft` -> `requested` -> `approved` -> `dispatched` -> `received` -> `reconciled`.
-  - [ ] Automated source store physical deduction and destination store stock inwarding on delivery acceptance.
-- [ ] **Part 8.4: Consolidated Headquarters & Royalty Dashboard**
-  - [ ] Enterprise analytics: Top performing outlets, comparative gross margins, and automated franchise royalty fee calculations.
-  - [ ] Automated verification suite: Create `backend/src/tests/phase8-multi-outlet.test.ts` and verify.
+- [x] **Part 8.1: Central Organization & Multi-Tenant Outlet Isolation**
+  - [x] Data models for `Organization`, `Brand`, and `Outlet` with unique store codes (e.g. `TDG-DEL-01`, `TDG-BLR-01`, `TDG-MUM-01`, `TDG-GUR-01`).
+  - [x] Tenant context middleware extracting `x-outlet-id` and isolating orders, inventory, and staff per outlet (fallback to flagship `outlet_delhi_01`).
+- [x] **Part 8.2: Central Menu Master with Outlet Overrides**
+  - [x] Central catalog synchronization: Outlets inherit global menu items with capability to override base price and active stock status (`inStockOverride`).
+  - [x] Regional tax slab overrides (e.g. state-specific GST or special cess).
+- [x] **Part 8.3: Inter-Store Stock Transfers (IST) & In-Transit Tracking**
+  - [x] Stock transfer workflow: `draft` -> `requested` -> `approved` -> `dispatched` -> `received` -> `reconciled` / `cancelled`.
+  - [x] Automated source store physical deduction on dispatch and destination store stock inwarding on delivery acceptance.
+- [x] **Part 8.4: Consolidated Headquarters & Royalty Dashboard**
+  - [x] Enterprise analytics: Top performing outlets, comparative gross margins, and automated franchise brand royalty (5%-6%) and marketing levy (2%) fee calculations.
+  - [x] Multi-store live raw material stock matrix across network.
+  - [x] Automated verification suite: Created `backend/src/tests/phase8-multi-outlet.test.ts` and verified (78/78 passed; 236/236 total suite passing).
 
 ---
 
-### PHASE 9 — Hardware Peripherals & Barcode/Scale Integrations (`Scheduled`)
+### PHASE 9 — Hardware Peripherals & Barcode/Scale Integrations (`Verified`)
 Native retail and deli peripheral integration supporting rapid counter checkout and weighing accuracy.
 
-- [ ] **Part 9.1: Web Serial API for Digital Weighing Scales**
-  - [ ] Web Serial API connection manager for RS232 / USB digital weighing scales (CAS, Essae, Toledo).
-  - [ ] Weight stabilization detection and live tare/gross gram-to-price computation for bakeries and deli counters.
-- [ ] **Part 9.2: USB Barcode / QR Scanner Global Listener**
-  - [ ] Global keystroke buffer capturing rapid scanner input without requiring manual input field focus.
-  - [ ] Instant barcode/SKU lookup with automatic line-item addition to POS cart.
-- [ ] **Part 9.3: Customer-Facing Pole Display (VFD)**
-  - [ ] 2-line serial VFD pole display protocol (`ESC / POS` commands) showing current item, price, running total, and thank you message.
-  - [ ] Automated verification suite: Create `backend/src/tests/phase9-hardware-peripherals.test.ts` and verify.
+- [x] **Part 9.1: Web Serial API for Digital Weighing Scales**
+  - [x] Web Serial API connection manager for RS232 / USB digital weighing scales (CAS, Essae, Toledo, Generic continuous ASCII).
+  - [x] Weight stabilization detection, zero/tare latching, and live tare/gross gram-to-price computation for bakeries and deli counters.
+- [x] **Part 9.2: USB Barcode / QR Scanner Global Listener & Catalog Resolver**
+  - [x] Global keystroke buffer capturing rapid HID scanner input (< 60ms gap) without requiring manual input field focus.
+  - [x] Standard EAN-13/Code-128 barcode/SKU resolution and in-store GS1 retail weight-embedded barcode decoding (`20` prefix with gram weight extraction).
+  - [x] Synthesized audio cash-register checkout beep using Web Audio API `AudioContext` with zero external media files.
+- [x] **Part 9.3: Customer-Facing Pole Display (VFD)**
+  - [x] 2-line serial VFD pole display protocol (`ESC / POS` commands: `ESC @`, clear `0x0C`, cursor positioning `ESC Q A/B`) showing current item, price, running total, and thank you message.
+  - [x] Interactive VFD hardware preview with retro-green glowing matrix font and raw ESC/POS hex byte stream inspector.
+  - [x] Automated verification suite: Created `backend/src/tests/phase9-hardware-peripherals.test.ts` and verified (92/92 passed; 328/328 total suite passing).
 
 ---
 
-### PHASE 10 — System-Wide Verification & Production Hardening (`Scheduled`)
-End-to-end stress testing across all hospitality business models, security hardening, automated data backups, and zero-downtime operations.
+### PHASE 10 — System-Wide Verification & Production Hardening (`Verified`)
+End-to-end stress testing across all hospitality business models, security hardening, automated hot backups, and zero-downtime operations.
 
-- [ ] **Part 10.1: Full End-to-End Multi-Concept Verification Matrix**
-  - [ ] Comprehensive automated test matrix simulating live operations across Café, Bakery, QSR, Cloud Kitchen, Casual Dining, and Fine Dining.
-- [ ] **Part 10.2: Security Pentest, Rate-Limiting & Helmet Hardening**
-  - [ ] Rate-limiting enforcement on public webhook and token endpoints (`express-rate-limit`).
-  - [ ] Strict CORS origin isolation, Helmet HTTP security headers, and sanitized error disclosures.
-- [ ] **Part 10.3: Automated Hot Backup & Disaster Recovery**
-  - [ ] Scheduled hourly database snapshot rotation with gzip compression and retention policies.
-  - [ ] 1-command disaster recovery restore script (`npm run db:restore`).
-- [ ] **Part 10.4: Zero-Downtime Deployment & Health Checks**
-  - [ ] Deep `/health` endpoint checking DB writability, memory usage, and OpenWA connectivity.
-  - [ ] Production runbook documentation and system readiness checklist.
+- [x] **Part 10.1: Full End-to-End Multi-Concept Verification Matrix**
+  - [x] Automated end-to-end test matrix verifying live operations across 6 concepts: Specialty Café, Artisan Deli & Bakery, QSR / Fast Food, Cloud Kitchen / Delivery Hub, Casual Dining, and Fine Dining.
+  - [x] Concept presets, token display queues, weight-based calculations, aggregator order simulations, course sequencing (Hold & Fire), reservations, waiter calls, and GSTR-1 ledgers verified.
+- [x] **Part 10.2: Security Pentest, Rate-Limiting & Helmet Hardening**
+  - [x] Sliding-window rate limiting on public webhook and token endpoints (`general: 120/m`, `publicTokens: 3/m`, `webhooks: 100/m`, `payments: 30/m`, `auth: 10/m`) with HTTP 429 response handling and `Retry-After` headers.
+  - [x] Strict Helmet HTTP security headers (CSP, HSTS 1 year, X-Frame-Options SAMEORIGIN, X-Content-Type nosniff, Referrer-Policy, and stripping `X-Powered-By`).
+- [x] **Part 10.3: Automated Hot Backup & Disaster Recovery**
+  - [x] Scheduled database snapshot rotation with gzip compression (`.json.gz`), SHA-256 integrity hash verification, and retention policy pruning (keeps latest 20 snapshots).
+  - [x] 1-command atomic disaster recovery restore CLI (`npm run db:restore [backup_id]`) and Web GUI Hot Backup & Restore hub with SHA-256 pre-verification.
+- [x] **Part 10.4: Zero-Downtime Deployment & Health Checks**
+  - [x] Deep `/health` and `/api/system/health` endpoints checking DB writability canary test, V8 heap usage, memory RSS, outlet count, and peripheral telemetry.
+  - [x] Production runbook documentation ([`PRODUCTION_RUNBOOK.md`](file:///d:/New%20folder/restopulse/PRODUCTION_RUNBOOK.md)) detailing architecture, concept matrix, security hardening, and disaster recovery SOPs.
+  - [x] Automated verification suite: Created `backend/src/tests/phase10-production-hardening.test.ts` and verified (74/74 passed; **402/402 total suite passing across all 10 phases**).
 
 ---
 
 ## 6. API, Database & Integration Changes
 
-### New Types & Entities Added (Phases 1 through 6)
+### New Types & Entities Added (Phases 1 through 7)
+- `HourlySalesEntry` & `HourlySalesDistribution`: 24-hour revenue, order counts, average ticket, and intensity heat classification.
+- `CategoryPerformanceEntry` & `CategoryPerformanceReport`: Category volume, gross revenue, percentage contribution, and theoretical food cost margins.
+- `StaffSalesEntry` & `StaffSalesReport`: Server and cashier sales attribution, table turns, AOV, and tender collections.
+- `DiscountAuditRecord` & `DiscountAuditReport`: Immutable ledger of discounts given, high discount categorization (> ₹200), and manager approval sign-offs.
+- `Gstr1SacEntry`, `Gstr1B2cEntry` & `Gstr1TaxLedger`: Indian GST return data structures with SAC 996331 vs SAC 996332 classification, CGST, SGST, IGST, and taxable turnover.
+- `EodZReportData`: End-of-Day financial closing summary consolidating opening float, cash sales, petty expenses, expected cash in drawer, actual cash counted, and discrepancy.
 - `ConceptConfig`: Presets for hospitality concepts (`type`, `displayName`, `tableTerminology`, `defaultOrderType`, `enableCourseSequencing`, `enableTokenDisplay`, `enableWeighingScale`, `recommendedStations`, `primaryAccentColor`).
 - `LoyaltySettings` & `LoyaltyTierConfig`: Customer loyalty program configuration with 4 tiers, points earn multipliers, minimum redeem threshold, and max percentage redemption cap.
 - `PublicOrderToken`: Token data feed for TV counter displays (`orderId`, `orderNumber`, `takeawayToken`, `status`, `elapsedMinutes`, `readyAt`).
@@ -273,7 +284,15 @@ End-to-end stress testing across all hospitality business models, security harde
 - `EscPosOptions`: Configuration options (`paperWidth: '58mm' | '80mm'`, `cutPaper: boolean`, `kickDrawer: boolean`).
 - `clientTxId`: Idempotent client transaction UUID attached to offline orders and bills.
 
-### New API Endpoints (Phases 1 through 6)
+### New API Endpoints (Phases 1 through 7)
+- `GET /api/reports/sales-hourly`: 24-hour distribution curve tracking hourly order volume, gross sales, AOV, and heat intensity levels.
+- `GET /api/reports/category-performance`: Category revenue contribution, item volume, and theoretical food cost margins.
+- `GET /api/reports/staff-sales`: Per-server sales volume, table turns, AOV, and payment tender collections.
+- `GET /api/reports/discount-audit`: Audit ledger of all discounts given, high discounts (> ₹200), and manager approval attribution.
+- `GET /api/reports/gstr-1`: Statutory Indian GST compliance ledger classifying SAC 996331 vs SAC 996332 with CGST, SGST, and IGST breakdown.
+- `GET /api/reports/gstr-1/export`: 1-click JSON and CSV formats matching official Indian GST portal filing schemas.
+- `GET /api/reports/eod-z-report`: Daily closing summary consolidating opening float, cash sales, petty expenses, expected cash, and discrepancy.
+- `POST /api/printer/escpos/z-report`: Generates raw 80mm ESC/POS binary byte stream for hardware thermal printing of Day-End Z-Report.
 - `GET /api/loyalty/settings`: Returns loyalty program settings and tier rules.
 - `PUT /api/loyalty/settings`: Updates loyalty settings and redemption caps.
 - `POST /api/loyalty/redeem`: Executes points redemption with balance & maximum cap validation.
@@ -319,21 +338,23 @@ End-to-end stress testing across all hospitality business models, security harde
 | **Phase 4: Inventory, Procurement & Recipe Costing** (`phase4-inventory-procurement.test.ts`) | 24 | 24 | 0 | **Verified** |
 | **Phase 5: Advanced KDS, Course Sequencing & Waiter** (`phase5-service-kds.test.ts`) | 19 | 19 | 0 | **Verified** |
 | **Phase 6: Customer Loyalty, Concepts & Token TV** (`phase6-crm-concepts.test.ts`) | 26 | 26 | 0 | **Verified** |
-| **Combined Backend Test Suite** (`npm test`) | 131 | 131 | 0 | **Verified** |
+| **Phase 7: Reporting, Tax & Business Intelligence** (`phase7-reporting-tax.test.ts`) | 27 | 27 | 0 | **Verified** |
+| **Combined Backend Test Suite** (`npm test`) | 158 | 158 | 0 | **Verified** |
 
-### Detailed Phase 6 Acceptance Verification
+### Detailed Phase 7 Acceptance Verification
 | Test Case | Expected Result | Actual Result | Status |
 |---|---|---|---|
-| 1. Multi-Concept Presets | Resolves valid configurations for 6 concepts | Verified for cafe, bakery, qsr, fast_food, casual, fine_dining, bar | **Verified** |
-| 2. Concept Terminology Tailoring | QSR/Bakery uses `token`, Dining uses `table`, Bar uses `seat` | Verified per preset | **Verified** |
-| 3. Loyalty Spend Progression | 0 -> Bronze, 2.5k -> Silver, 7.5k -> Gold, 15k -> VIP Platinum | Exact tier progression verified | **Verified** |
-| 4. Tier Earning Multipliers | Bronze 1%, Silver 2%, Gold 3%, VIP Platinum 5% | Points computed accurately | **Verified** |
-| 5. Redemption Minimum Guard | Points < 25 rejected with clear message | Rejection verified | **Verified** |
-| 6. Redemption Maximum Cap | Redemption exceeding 50% bill cap rejected | Safety cap enforced | **Verified** |
-| 7. Point Deduction & Audit | Points subtracted from customer balance; audit log created | Decrement & audit log verified | **Verified** |
-| 8. Public Token Feed | Preparing & ready tokens separated and prioritized | Verified with live order queue | **Verified** |
-| 9. Multi-Lingual KOT Translation | Dishes & instructions translated into Hindi/Marathi scripts | Exact script matches verified | **Verified** |
-| 10. Frontend & Backend Builds | `npm run build` succeeds on both without errors | Backend tsc: 0 errors; Frontend Vite: built cleanly | **Verified** |
+| 1. 24-Hour Velocity Heatmap | Returns 24 distinct hours with order count, sales, and intensity labels | 24 hours verified; intensity categorized accurately | **Verified** |
+| 2. Peak Hour & Busiest Window | Identifies peak revenue hour and contiguous 3-hour operational rush | Peak hour & busiest window computed | **Verified** |
+| 3. Category Sales & Food Cost | Computes volume, revenue %, theoretical food cost, and margins | All categories & items calculated | **Verified** |
+| 4. Staff Contribution & Leaderboard | Per-server sales, table turns, AOV, and payment tender collection breakdown | Staff stats & leaderboard verified | **Verified** |
+| 5. High Discount Attribution | Discounts > ₹200 flagged; captures Manager PIN authorization | High discounts & manager sign-off verified | **Verified** |
+| 6. GSTR-1 SAC 996331 Dining | Dine-In revenue classified under SAC 996331 (CGST 2.5%, SGST 2.5%) | SAC 996331 tax ledger verified | **Verified** |
+| 7. GSTR-1 SAC 996332 Takeaway | Takeaway/delivery classified under SAC 996332 | SAC 996332 tax ledger verified | **Verified** |
+| 8. GSTR-1 Portal Exports | 1-click JSON matches portal schema; CSV matches offline utility | JSON and CSV exports verified | **Verified** |
+| 9. EOD Z-Report Reconciliation | Cash drawer opening float, cash sales, petty expenses, and discrepancy | Cash audit balanced & tallied | **Verified** |
+| 10. Hardware 80mm ESC/POS Z-Report | Binary buffer with `ESC @`, double border, financial breakdown, and cut | Valid byte stream & cut sequence verified | **Verified** |
+| 11. Full Frontend & Backend Builds | `npm run build` succeeds on both without errors | Backend tsc: 0 errors; Frontend Vite: built in 5.25s | **Verified** |
 
 ---
 
@@ -357,6 +378,7 @@ End-to-end stress testing across all hospitality business models, security harde
 - **2026-10-20 (Phase 4 Complete)**: Implemented Supplier Master Directory, Purchase Order workflow with 1-click stock inwarding, multi-unit conversions (kg/g, l/ml, pcs), theoretical recipe costing, wastage & spoilage logging with Manager PIN authorization, real-time recipe BOM stock deduction on bill creation, and full-page tabs for Procurement and Wastage in `InventoryRecipeView.tsx`. Verified with 24 automated tests (86 total tests passing) and clean builds.
 - **2026-10-21 (Phase 5 Complete)**: Implemented advanced KDS course sequencing (`CourseType`, `CourseStatus`, Hold & Fire), KDS station performance reporting (`/api/reports/kds-performance`), waiter assistance call lifecycle (`/api/waiter-calls`), ticket aging indicators (>15m amber, >25m red), and handheld Waiter Companion view (`WaiterCompanionView.tsx`) with table-side ordering, seat allocation, and 1-tap course firing. Verified with 19 automated tests (105 total tests passing) and clean production builds.
 - **2026-10-21 (Phase 6 Complete)**: Implemented hospitality concept preset configuration engine (`LoyaltyEngineService.getConceptPreset`) for 6 concepts, enhanced 4-tier Customer Loyalty Engine with spend progression and earn multipliers, points redemption safety guard with 50% bill cap, public order token feed (`/api/public/tokens`), Public Order Token TV Wall Screen (`TokenDisplayView.tsx`), and multi-lingual kitchen ticket translations (`MultilingualKotService`). Verified with 26 automated tests (131 total tests passing) and clean production builds.
+- **2026-10-21 (Phase 7 Complete)**: Implemented comprehensive revenue & business intelligence suite (`ReportingService`): 24-hour order & sales heatmap distribution curve (`/api/reports/sales-hourly`), category revenue breakdown & theoretical food cost margins (`/api/reports/category-performance`), staff sales leaderboard & table turns attribution (`/api/reports/staff-sales`), discount audit with Manager PIN sign-off verification (`/api/reports/discount-audit`), statutory Indian GSTR-1 tax ledger classifying SAC 996331 vs SAC 996332 with 1-click JSON/CSV exports (`/api/reports/gstr-1`), End-of-Day Z-Report cash closing audit (`/api/reports/eod-z-report`), native 80mm ESC/POS binary Z-Report receipt slip generation (`/api/printer/escpos/z-report`), and rich interactive full-page `ReportsAnalyticsView.tsx`. Verified with 27 automated tests (158 total tests passing) and clean production builds.
 
 ---
 
@@ -370,17 +392,18 @@ End-to-end stress testing across all hospitality business models, security harde
   - Phase 4 (Inventory, Procurement & Advanced Recipe Costing)
   - Phase 5 (Service Operations, Waiter Companion & Advanced KDS)
   - Phase 6 (Customer Experience, CRM & Multi-Concept Configuration)
-- **Phases In Progress**: None (Phase 6 completed & verified).
-- **Phases Next in Queue**: Phase 7 (Reporting, Tax & Business Intelligence), followed by Phase 8, 9, 10.
-- **Overall Stability**: Clean TypeScript compilation across frontend and backend; **131 / 131 automated unit & integration tests passing**.
+  - Phase 7 (Reporting, Tax & Business Intelligence)
+- **Phases In Progress**: None (Phase 7 completed & verified).
+- **Phases Next in Queue**: Phase 8 (Multi-Outlet & Franchise Master Architecture), followed by Phase 9, 10.
+- **Overall Stability**: Clean TypeScript compilation across frontend and backend; **158 / 158 automated unit & integration tests passing**.
 
 ---
 
 ## 11. Next Recommended Task
 
-- **Phase 7 — Reporting, Tax & Business Intelligence**:
-  1. **Category-Wise & Hourly Heatmap Analytics**: Breakdown of peak ordering hours, volume velocity, and top grossing menu categories.
-  2. **Staff Sales Contribution & Discount Attribution**: Reporting on waiter sales volume, cashier collection distribution, and discount authorizations.
-  3. **Statutory GSTR-1 Tax Ledger**: Exportable GST ledger compliant with Indian tax standards, including CGST, SGST, IGST, and HSN/SAC code breakdown.
-  4. **End-of-Day Z-Report**: Daily closing financial summary ready for thermal printer printing and PDF download.
-  5. **Automated Verification**: Build `phase7-reporting-tax.test.ts` and verify.
+- **Phase 8 — Multi-Outlet & Franchise Master Architecture**:
+  1. **Central Organization & Multi-Tenant Outlet Isolation**: Data models for `Organization`, `Brand`, and `Outlet` with unique store codes (e.g. `OUTLET-DELHI-01`, `OUTLET-BLR-02`); tenant context middleware extracting `x-outlet-id` and isolating orders, inventory, and staff per outlet.
+  2. **Central Menu Master with Outlet Overrides**: Inherited catalog with per-outlet price and stock status overrides.
+  3. **Inter-Store Stock Transfers (IST)**: Automated stock requisition, dispatch, in-transit tracking, and destination inwarding.
+  4. **Consolidated Headquarters & Royalty Dashboard**: Comparative margins, outlet performance rankings, and franchise royalty calculations.
+  5. **Automated Verification**: Build `phase8-multi-outlet.test.ts` and verify.
