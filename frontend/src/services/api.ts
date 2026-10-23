@@ -959,6 +959,55 @@ export const ApiService = {
     return res.json();
   },
 
+  // Phase 12: Automated Payments & Soundbox Integration
+  async createDynamicUpiQr(data: {
+    amount: number;
+    orderId?: string;
+    billId?: string;
+    tableNumber?: string;
+    payerPhone?: string;
+    idempotencyKey?: string;
+  }): Promise<{ success: boolean; payment?: PaymentTransaction; upiUrl?: string; error?: string }> {
+    const res = await fetchWithTimeout(`${API_BASE}/payments/dynamic-upi/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+
+  async confirmUpiPayment(data: {
+    paymentId: string;
+    providerTxId?: string;
+    payerVpa?: string;
+  }): Promise<{ success: boolean; payment?: PaymentTransaction; soundboxSpeech?: string; error?: string; message?: string }> {
+    const res = await fetchWithTimeout(`${API_BASE}/payments/dynamic-upi/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+
+  async pushEdcTerminal(data: {
+    amount: number;
+    billId?: string;
+    orderId?: string;
+    terminalId?: string;
+  }): Promise<{ success: boolean; payment?: PaymentTransaction; authCode?: string; rrn?: string; error?: string; message?: string }> {
+    const res = await fetchWithTimeout(`${API_BASE}/payments/edc/push`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+
+  async getPaymentStatus(paymentId: string): Promise<{ success: boolean; payment: PaymentTransaction }> {
+    const res = await fetchWithTimeout(`${API_BASE}/payments/${paymentId}/status`);
+    return res.json();
+  },
+
   async getReconciliationReport(): Promise<ReconciliationReport | null> {
     try {
       const res = await fetchWithTimeout(`${API_BASE}/reports/reconciliation`);

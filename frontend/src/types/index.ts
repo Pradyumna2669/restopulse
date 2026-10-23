@@ -74,6 +74,17 @@ export interface PublicOrderToken {
   readyAt?: string;
 }
 
+export interface PaymentAutomationConfig {
+  enableDynamicUpiQr: boolean;
+  enableAutoSoundboxChime: boolean;
+  enableEdcPush: boolean;
+  enablePayAtTable: boolean;
+  enableWhatsAppPayLink: boolean;
+  enablePrePayCounter: boolean;
+  upiVpa: string;
+  merchantName: string;
+}
+
 export interface RestaurantProfile {
   id: string;
   name: string;
@@ -98,6 +109,7 @@ export interface RestaurantProfile {
     reviewPromptDelayMinutes: number;
   };
   deliveryPartners?: DeliveryPartnerConfig[];
+  paymentConfig?: PaymentAutomationConfig;
 }
 
 export interface Category {
@@ -533,7 +545,7 @@ export interface AuditLog {
   userName: string;
   role: StaffRole;
   action: string;
-  entityType: 'bill' | 'order' | 'inventory' | 'cash_register' | 'menu' | 'profile' | 'staff' | 'customer';
+  entityType: 'bill' | 'order' | 'inventory' | 'cash_register' | 'menu' | 'profile' | 'staff' | 'customer' | 'payment';
   entityId: string;
   details?: Record<string, any>;
   reason?: string;
@@ -550,7 +562,7 @@ export interface AuditLog {
 // ==========================================
 
 export type PaymentStatus = 'pending' | 'success' | 'failed' | 'refunded' | 'timeout';
-export type PaymentProvider = 'manual' | 'razorpay' | 'phonepe' | 'paytm' | 'stripe';
+export type PaymentProvider = 'manual' | 'razorpay' | 'phonepe' | 'paytm' | 'stripe' | 'pinelabs';
 
 export interface PaymentTransaction {
   id: string;
@@ -567,6 +579,11 @@ export interface PaymentTransaction {
     phone?: string;
     vpa?: string;
   };
+  upiUrl?: string;
+  authCode?: string;
+  rrn?: string;
+  soundboxAnnounced?: boolean;
+  settledAt?: string;
   refundDetails?: {
     refundId: string;
     amount: number;

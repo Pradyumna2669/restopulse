@@ -57,7 +57,7 @@ ${itemLines}${subDivider}
 ${bill.discountAmount > 0 ? `*Discount:* -${profile.currencySymbol}${bill.discountAmount.toFixed(2)}\n` : ''}*Round Off:* ${profile.currencySymbol}${bill.roundOff.toFixed(2)}
 *GRAND TOTAL:* *${profile.currencySymbol}${bill.total.toFixed(2)}*
 *Payment Mode:* ${bill.paymentMode.toUpperCase()} (PAID)
-${divider}
+${profile.paymentConfig?.enableWhatsAppPayLink !== false ? `\n📲 *Instant 1-Tap UPI Pay Link (GPay / PhonePe):*\nupi://pay?pa=${profile.paymentConfig?.upiVpa || 'restroplus@icici'}&pn=${encodeURIComponent(profile.paymentConfig?.merchantName || profile.name)}&am=${bill.total.toFixed(2)}&cu=INR&tn=Invoice%${encodeURIComponent(bill.invoiceNumber)}\n` : ''}${divider}
 Thank you for dining with us! We look forward to serving you again soon. ✨`;
 
     return msg;

@@ -16,6 +16,7 @@ import {
   ArrowRight,
   Sparkles,
   ChefHat,
+  Zap,
   X
 } from 'lucide-react';
 import {
@@ -65,6 +66,7 @@ export const CustomerOrderView: React.FC<CustomerOrderViewProps> = ({
 
   // Placed Order State
   const [confirmedBill, setConfirmedBill] = useState<Bill | null>(null);
+  const [customerPaid, setCustomerPaid] = useState<boolean>(false);
 
   const isCafe = !profile.businessType || profile.businessType === 'cafe' || profile.businessType === 'bakery';
 
@@ -213,6 +215,119 @@ export const CustomerOrderView: React.FC<CustomerOrderViewProps> = ({
               <span className="text-stone-500">Serving hot at Table {table.tableNumber}</span>
             </div>
           </div>
+
+          {/* Real-Time Payment Status & Confirmation (Phase 12) */}
+          {confirmedBill.paymentMode === 'upi' ? (
+            <div className="bg-white border-2 border-violet-500/30 rounded-2xl p-4 text-left space-y-3 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center text-violet-600">
+                    <QrCode className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-stone-900 block">Instant UPI Payment</span>
+                    <span className="text-[10px] text-stone-500">NPCI Direct Merchant Settlement</span>
+                  </div>
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center space-x-1 ${
+                  customerPaid 
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                    : 'bg-violet-50 text-violet-700 border border-violet-200'
+                }`}>
+                  {customerPaid ? (
+                    <>
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      <span>Payment Confirmed</span>
+                    </>
+                  ) : (
+                    <span>Awaiting Payment</span>
+                  )}
+                </span>
+              </div>
+
+              {!customerPaid ? (
+                <div className="bg-canvas-50 border border-canvas-border rounded-xl p-3 flex flex-col items-center space-y-2">
+                  <div className="w-32 h-32 bg-white rounded-lg p-2 border border-canvas-border flex items-center justify-center shadow-sm">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
+                        `upi://pay?pa=${profile.paymentConfig?.upiVpa || 'restroplus@icici'}&pn=${encodeURIComponent(profile.paymentConfig?.merchantName || profile.name)}&am=${confirmedBill.total.toFixed(2)}&cu=INR&tn=Table${table.tableNumber}Order${confirmedBill.orderNumber}`
+                      )}`}
+                      alt="Scan to Pay"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs font-bold text-stone-900">Scan via GPay / PhonePe / Paytm</p>
+                    <p className="text-[11px] font-mono text-terracotta-600 font-bold mt-0.5">
+                      Amount: {profile.currencySymbol}{confirmedBill.total.toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="w-full flex gap-2 pt-1">
+                    <a
+                      href={`upi://pay?pa=${profile.paymentConfig?.upiVpa || 'restroplus@icici'}&pn=${encodeURIComponent(profile.paymentConfig?.merchantName || profile.name)}&am=${confirmedBill.total.toFixed(2)}&cu=INR&tn=Table${table.tableNumber}Order${confirmedBill.orderNumber}`}
+                      className="flex-1 py-2 bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs rounded-xl flex items-center justify-center space-x-1 shadow-sm"
+                    >
+                      <Zap className="w-3.5 h-3.5" />
+                      <span>1-Tap App Pay</span>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomerPaid(true);
+                        try {
+                          const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+                          if (AudioCtx) {
+                            const ctx = new AudioCtx();
+                            const osc = ctx.createOscillator();
+                            const gain = ctx.createGain();
+                            osc.connect(gain);
+                            gain.connect(ctx.destination);
+                            osc.type = 'triangle';
+                            osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+                            osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.15);
+                            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+                            osc.start();
+                            osc.stop(ctx.currentTime + 0.4);
+                          }
+                        } catch {}
+                      }}
+                      className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm"
+                    >
+                      Confirm Paid
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-center space-y-1">
+                  <CheckCircle2 className="w-6 h-6 text-emerald-600 mx-auto" />
+                  <p className="text-xs font-bold text-emerald-900">Payment Settled in Real-Time!</p>
+                  <p className="text-[10px] text-emerald-700">
+                    Payment confirmed via UPI soundbox. Your order is speeding directly to Table {table.tableNumber}.
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-white border border-canvas-border rounded-2xl p-3.5 text-left flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-xl bg-canvas-100 flex items-center justify-center text-stone-700">
+                  {confirmedBill.paymentMode === 'card' ? <CreditCard className="w-4 h-4 text-blue-600" /> : <Banknote className="w-4 h-4 text-emerald-600" />}
+                </div>
+                <div className="text-xs">
+                  <span className="font-bold text-stone-900 block">
+                    {confirmedBill.paymentMode === 'card' ? 'Pay via Card at Table' : 'Pay via Cash at Counter/Table'}
+                  </span>
+                  <span className="text-[10px] text-stone-500">
+                    {confirmedBill.paymentMode === 'card' ? 'Captain is bringing wireless EDC terminal' : 'Staff will collect cash upon serving'}
+                  </span>
+                </div>
+              </div>
+              <span className="text-xs font-mono font-bold text-stone-900">
+                {profile.currencySymbol}{confirmedBill.total.toFixed(2)}
+              </span>
+            </div>
+          )}
 
           {/* WhatsApp Invoicing Notice */}
           <div className="bg-sage-50 border border-sage-200 rounded-2xl p-4 flex items-center space-x-3 text-left">

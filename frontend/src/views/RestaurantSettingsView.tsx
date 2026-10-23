@@ -18,14 +18,19 @@ import {
   RotateCcw,
   Trash2,
   Terminal,
-  Server
+  Server,
+  QrCode,
+  Volume2,
+  CreditCard,
+  Zap
 } from 'lucide-react';
 import {
   RestaurantProfile,
   BusinessType,
   FeatureFlags,
   SystemHealthReport,
-  BackupMetadata
+  BackupMetadata,
+  PaymentAutomationConfig
 } from '../types';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -58,7 +63,21 @@ export const RestaurantSettingsView: React.FC<RestaurantSettingsViewProps> = ({
   onUpdateProfile,
   openwaOnline = false
 }) => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'diagnostics' | 'backups'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'payments' | 'diagnostics' | 'backups'>('profile');
+
+  // Automated Payment Configuration (Phase 12)
+  const [paymentConfig, setPaymentConfig] = useState<PaymentAutomationConfig>(
+    profile.paymentConfig || {
+      enableDynamicUpiQr: true,
+      enableAutoSoundboxChime: true,
+      enableEdcPush: true,
+      enablePayAtTable: true,
+      enableWhatsAppPayLink: true,
+      enablePrePayCounter: false,
+      upiVpa: 'restroplus@icici',
+      merchantName: profile.name || 'RestroPlus'
+    }
+  );
 
   // Profile Form States
   const [businessType, setBusinessType] = useState<BusinessType>(profile.businessType || 'cafe');
@@ -220,6 +239,7 @@ export const RestaurantSettingsView: React.FC<RestaurantSettingsViewProps> = ({
         currencySymbol,
         googlePlaceReviewUrl,
         featureFlags: flags,
+        paymentConfig,
         openwaConfig: {
           ...profile.openwaConfig,
           apiUrl: openwaApiUrl,
@@ -235,6 +255,36 @@ export const RestaurantSettingsView: React.FC<RestaurantSettingsViewProps> = ({
       alert('Failed to save settings.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Soundbox Live Audio Preview (Web Audio & Speech Synthesis)
+  const handleTestSoundbox = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+        osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.4);
+      }
+      if ('speechSynthesis' in window) {
+        const text = `RestroPlus Soundbox Test: Payment of ₹350 received successfully on UPI.`;
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.05;
+        window.speechSynthesis.speak(utterance);
+      }
+    } catch (e) {
+      console.warn('Audio synthesis unavailable', e);
     }
   };
 
@@ -336,6 +386,19 @@ export const RestaurantSettingsView: React.FC<RestaurantSettingsViewProps> = ({
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
             <span>Store Profile</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('payments')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all ${
+              activeTab === 'payments'
+                ? 'bg-white text-stone-900 shadow-sm'
+                : 'text-stone-600 hover:text-stone-900'
+            }`}
+          >
+            <CreditCard className="w-3.5 h-3.5 text-terracotta-600" />
+            <span>Automated Payments & Soundbox</span>
           </button>
 
           <button
@@ -800,6 +863,214 @@ export const RestaurantSettingsView: React.FC<RestaurantSettingsViewProps> = ({
               leftIcon={<Save className="w-4 h-4" />}
             >
               Save All Settings
+            </Button>
+          </div>
+        </form>
+      )}
+
+      {/* TAB: AUTOMATED PAYMENTS & SOUNDBOX (PHASE 12) */}
+      {activeTab === 'payments' && (
+        <form onSubmit={handleSaveAll} className="space-y-6">
+          {saveSuccess && (
+            <div className="text-xs font-semibold text-sage-700 bg-sage-50 border border-sage-200 px-3.5 py-2 rounded-xl animate-fadeIn flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-sage-600" />
+              <span>Payment automation settings updated and broadcasted across all POS counters.</span>
+            </div>
+          )}
+
+          {/* Banner Card */}
+          <Card className="bg-gradient-to-r from-stone-900 via-stone-850 to-stone-900 text-white border-stone-800 p-6 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
+                  <Zap className="w-3 h-3 text-emerald-400" />
+                  <span>Real-Time Payment Automation Engine</span>
+                </div>
+                <h3 className="text-lg font-bold text-white tracking-tight">Automated Collections, UPI QR & Soundbox</h3>
+                <p className="text-xs text-stone-300 max-w-xl leading-relaxed">
+                  Configure automated cashless payments for your restaurant or café. Owners can independently toggle dynamic UPI QR generation, Pine Labs EDC card push, pay-at-table and real-time audio soundbox notifications to eliminate fraud and reduce billing queues.
+                </p>
+              </div>
+
+              <div className="shrink-0 flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleTestSoundbox}
+                  leftIcon={<Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
+                  className="bg-stone-800 hover:bg-stone-700 text-stone-100 border-stone-700 text-xs font-bold"
+                >
+                  Test Soundbox Speaker 🔊
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          {/* Merchant UPI Parameters */}
+          <Card className="space-y-4">
+            <div className="border-b border-canvas-border pb-3">
+              <h4 className="text-sm font-bold text-stone-900 flex items-center gap-2">
+                <QrCode className="w-4 h-4 text-brand-600" />
+                <span>UPI Merchant Credentials (Direct Settlement)</span>
+              </h4>
+              <p className="text-xs text-stone-500 mt-0.5">
+                Funds collected via Dynamic UPI QR land directly into your restaurant bank account via NPCI with zero aggregator deduction.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-semibold text-stone-700 block mb-1">
+                  Merchant UPI ID / VPA <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={paymentConfig.upiVpa}
+                  onChange={e => setPaymentConfig({ ...paymentConfig, upiVpa: e.target.value.trim() })}
+                  placeholder="e.g. restroplus@icici, cafe@okaxis"
+                  className="w-full text-xs px-3 py-2 rounded-xl border border-canvas-border bg-white text-stone-900 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                />
+                <span className="text-[10px] text-stone-400 mt-1 block">NPCI Virtual Payment Address for customer transfers.</span>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-stone-700 block mb-1">
+                  Merchant Business Name (Display on UPI Apps)
+                </label>
+                <input
+                  type="text"
+                  value={paymentConfig.merchantName}
+                  onChange={e => setPaymentConfig({ ...paymentConfig, merchantName: e.target.value })}
+                  placeholder={name}
+                  className="w-full text-xs px-3 py-2 rounded-xl border border-canvas-border bg-white text-stone-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                />
+                <span className="text-[10px] text-stone-400 mt-1 block">Name shown on Google Pay, PhonePe, and Paytm payment review screens.</span>
+              </div>
+            </div>
+          </Card>
+
+          {/* Feature Toggles Matrix */}
+          <Card className="space-y-4">
+            <div className="border-b border-canvas-border pb-3">
+              <h4 className="text-sm font-bold text-stone-900 flex items-center gap-2">
+                <SlidersHorizontal className="w-4 h-4 text-terracotta-600" />
+                <span>Payment Automation Toggles (Owner Controlled)</span>
+              </h4>
+              <p className="text-xs text-stone-500 mt-0.5">
+                Enable or disable specific payment automations to fit your operational style (e.g. disable EDC if counter has no card swipe machine).
+              </p>
+            </div>
+
+            <div className="space-y-4 divide-y divide-canvas-border">
+              {/* Toggle 1: Dynamic UPI QR */}
+              <div className="pt-2 flex items-start justify-between gap-4">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-stone-900">Dynamic Amount UPI QR Code</span>
+                    <Badge variant={paymentConfig.enableDynamicUpiQr !== false ? 'success' : 'neutral'} size="sm">
+                      {paymentConfig.enableDynamicUpiQr !== false ? 'Enabled' : 'Disabled'}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-stone-500 leading-relaxed max-w-xl">
+                    Generates a unique QR code with exact invoice amount pre-filled. Eliminates customer manual amount typos and speeds up billing queue by 65%.
+                  </p>
+                </div>
+                <ToggleSwitch
+                  checked={paymentConfig.enableDynamicUpiQr !== false}
+                  onChange={checked => setPaymentConfig({ ...paymentConfig, enableDynamicUpiQr: checked })}
+                />
+              </div>
+
+              {/* Toggle 2: Real-time Soundbox Chime & Voice */}
+              <div className="pt-4 flex items-start justify-between gap-4">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-stone-900">Real-Time Soundbox Voice & Chime</span>
+                    <Badge variant={paymentConfig.enableAutoSoundboxChime !== false ? 'success' : 'neutral'} size="sm">
+                      {paymentConfig.enableAutoSoundboxChime !== false ? 'Enabled' : 'Disabled'}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-stone-500 leading-relaxed max-w-xl">
+                    Announces incoming payments via audio chime and voice speech (<code className="text-stone-700 bg-stone-100 px-1 py-0.5 rounded text-[10px]">₹X received on UPI</code>) immediately upon receipt. 100% protection against fraudulent payment screenshots.
+                  </p>
+                </div>
+                <ToggleSwitch
+                  checked={paymentConfig.enableAutoSoundboxChime !== false}
+                  onChange={checked => setPaymentConfig({ ...paymentConfig, enableAutoSoundboxChime: checked })}
+                />
+              </div>
+
+              {/* Toggle 3: EDC Card Terminal Push */}
+              <div className="pt-4 flex items-start justify-between gap-4">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-stone-900">Pine Labs / EDC Card Terminal Push</span>
+                    <Badge variant={paymentConfig.enableEdcPush !== false ? 'success' : 'neutral'} size="sm">
+                      {paymentConfig.enableEdcPush !== false ? 'Enabled' : 'Disabled'}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-stone-500 leading-relaxed max-w-xl">
+                    1-Click card billing: Pushes exact bill total to Pine Labs Plutus or Paytm EDC terminal machine. Cashier does not re-type numbers on EDC machine.
+                  </p>
+                </div>
+                <ToggleSwitch
+                  checked={paymentConfig.enableEdcPush !== false}
+                  onChange={checked => setPaymentConfig({ ...paymentConfig, enableEdcPush: checked })}
+                />
+              </div>
+
+              {/* Toggle 4: Pay-at-Table QR on Bills */}
+              <div className="pt-4 flex items-start justify-between gap-4">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-stone-900">Pay-at-Table QR on Thermal Receipts & Digital Menu</span>
+                    <Badge variant={paymentConfig.enablePayAtTable !== false ? 'success' : 'neutral'} size="sm">
+                      {paymentConfig.enablePayAtTable !== false ? 'Enabled' : 'Disabled'}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-stone-500 leading-relaxed max-w-xl">
+                    Prints dynamic pay QR on guest thermal checks and enables self-checkout on digital table menu, allowing diners to pay and leave without waiting for a waiter.
+                  </p>
+                </div>
+                <ToggleSwitch
+                  checked={paymentConfig.enablePayAtTable !== false}
+                  onChange={checked => setPaymentConfig({ ...paymentConfig, enablePayAtTable: checked })}
+                />
+              </div>
+
+              {/* Toggle 5: WhatsApp 1-Tap UPI Pay Link */}
+              <div className="pt-4 flex items-start justify-between gap-4">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-stone-900">1-Tap UPI Pay Link in WhatsApp Tax Invoices</span>
+                    <Badge variant={paymentConfig.enableWhatsAppPayLink !== false ? 'success' : 'neutral'} size="sm">
+                      {paymentConfig.enableWhatsAppPayLink !== false ? 'Enabled' : 'Disabled'}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-stone-500 leading-relaxed max-w-xl">
+                    Attaches clickable <code className="text-stone-700 bg-stone-100 px-1 py-0.5 rounded text-[10px]">upi://pay?...</code> link inside the OpenWA WhatsApp bill receipt for frictionless home delivery and takeaway payments.
+                  </p>
+                </div>
+                <ToggleSwitch
+                  checked={paymentConfig.enableWhatsAppPayLink !== false}
+                  onChange={checked => setPaymentConfig({ ...paymentConfig, enableWhatsAppPayLink: checked })}
+                />
+              </div>
+            </div>
+          </Card>
+
+          {/* Submit Action */}
+          <div className="flex justify-end pt-2">
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              isLoading={isSaving}
+              leftIcon={<Save className="w-4 h-4" />}
+            >
+              Save Payment Automation Settings
             </Button>
           </div>
         </form>

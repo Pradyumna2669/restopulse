@@ -5,6 +5,7 @@ import { store } from '../data/store';
 import { OpenWAService } from '../services/openwa.service';
 import { EscPosService } from '../services/escpos.service';
 import { AggregatorSecurityService } from '../services/aggregatorSecurity.service';
+import { PaymentAutomationService } from '../services/paymentAutomation.service';
 import { InventoryCostingService } from '../services/inventoryCosting.service';
 import { KdsService } from '../services/kdsService';
 import { LoyaltyEngineService } from '../services/loyaltyEngine.service';
@@ -1064,6 +1065,49 @@ apiRouter.post('/payments/initiate', securityService.createRateLimiter('payments
   res.status(201).json({ success: true, payment });
 });
 
+// Phase 12: Automated Payment Collection & Soundbox Handshake (Registered before parameterized :id routes)
+apiRouter.post('/payments/dynamic-upi/create', (req: Request, res: Response) => {
+  const { amount, orderId, billId, tableNumber, payerPhone, idempotencyKey } = req.body;
+  const result = PaymentAutomationService.generateDynamicUpiQr({
+    amount: Number(amount),
+    orderId,
+    billId,
+    tableNumber,
+    payerPhone,
+    idempotencyKey
+  });
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+  res.status(201).json(result);
+});
+
+apiRouter.post('/payments/dynamic-upi/confirm', (req: Request, res: Response) => {
+  const { paymentId, providerTxId, payerVpa } = req.body;
+  if (!paymentId) {
+    return res.status(400).json({ error: 'paymentId is required' });
+  }
+  const result = PaymentAutomationService.confirmUpiPayment(paymentId, providerTxId, payerVpa);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+  res.json(result);
+});
+
+apiRouter.post('/payments/edc/push', (req: Request, res: Response) => {
+  const { amount, billId, orderId, terminalId } = req.body;
+  const result = PaymentAutomationService.pushEdcTerminal({
+    amount: Number(amount),
+    billId,
+    orderId,
+    terminalId
+  });
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+  res.json(result);
+});
+
 apiRouter.post('/payments/:id/confirm', (req: Request, res: Response) => {
   const { providerTxId } = req.body;
   const result = AggregatorSecurityService.confirmPayment(req.params.id, providerTxId);
@@ -1096,6 +1140,14 @@ apiRouter.post('/payments/:id/refund', (req: Request, res: Response) => {
 
 apiRouter.get('/payments', (req: Request, res: Response) => {
   res.json(store.getPayments());
+});
+
+apiRouter.get('/payments/:id/status', (req: Request, res: Response) => {
+  const payment = PaymentAutomationService.getPaymentStatus(req.params.id);
+  if (!payment) {
+    return res.status(404).json({ error: 'Payment transaction not found' });
+  }
+  res.json(payment);
 });
 
 apiRouter.get('/reports/reconciliation', (req: Request, res: Response) => {

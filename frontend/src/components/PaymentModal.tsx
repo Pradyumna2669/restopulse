@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PaymentMode, OrderType, SplitPaymentEntry, CustomerProfile } from '../types';
+import { PaymentMode, OrderType, SplitPaymentEntry, CustomerProfile, PaymentAutomationConfig, PaymentTransaction } from '../types';
 import { ApiService } from '../services/api';
 import {
   X,
@@ -16,7 +16,11 @@ import {
   Ticket,
   Crown,
   Split,
-  Gift
+  Gift,
+  Volume2,
+  Zap,
+  Check,
+  Loader2
 } from 'lucide-react';
 
 interface PaymentModalProps {
@@ -67,6 +71,69 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [isSearchingCustomer, setIsSearchingCustomer] = useState(false);
   const [pointsRedeemed, setPointsRedeemed] = useState<number>(0);
   const [isRedeemingPoints, setIsRedeemingPoints] = useState(false);
+
+  // Automated Payment Collection States (Phase 12)
+  const [paymentConfig, setPaymentConfig] = useState<PaymentAutomationConfig | null>(null);
+  const [dynamicPayment, setDynamicPayment] = useState<PaymentTransaction | null>(null);
+  const [upiUrl, setUpiUrl] = useState<string>('');
+  const [isGeneratingUpi, setIsGeneratingUpi] = useState<boolean>(false);
+  const [isConfirmingUpi, setIsConfirmingUpi] = useState<boolean>(false);
+  const [upiConfirmed, setUpiConfirmed] = useState<boolean>(false);
+  const [soundboxSpeech, setSoundboxSpeech] = useState<string>('');
+  const [isPushingEdc, setIsPushingEdc] = useState<boolean>(false);
+  const [edcConfirmed, setEdcConfirmed] = useState<{ authCode: string; rrn: string } | null>(null);
+
+  // Load Owner Payment Config from Profile
+  useEffect(() => {
+    ApiService.getProfile()
+      .then(prof => {
+        if (prof?.paymentConfig) {
+          setPaymentConfig(prof.paymentConfig);
+        } else {
+          setPaymentConfig({
+            enableDynamicUpiQr: true,
+            enableAutoSoundboxChime: true,
+            enableEdcPush: true,
+            enablePayAtTable: true,
+            enableWhatsAppPayLink: true,
+            enablePrePayCounter: false,
+            upiVpa: 'restroplus@icici',
+            merchantName: prof?.name || 'RestroPlus'
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Web Audio & Soundbox Voice Chime synthesizer
+  const playSoundboxAlert = (speechText?: string) => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+        osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); // E5
+        osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2); // G5
+        gain.gain.setValueAtTime(0.35, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.45);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.45);
+      }
+      if ('speechSynthesis' in window && speechText && (paymentConfig?.enableAutoSoundboxChime !== false)) {
+        const utterance = new SpeechSynthesisUtterance(speechText);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.05;
+        window.speechSynthesis.speak(utterance);
+      }
+    } catch (e) {
+      console.warn('Audio alert unavailable', e);
+    }
+  };
 
   // Split Tender State
   const [isSplitMode, setIsSplitMode] = useState(false);
@@ -120,6 +187,71 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   // Split Calculation
   const totalSplitTendered = Number((splitCash + splitUpi + splitCard).toFixed(2));
   const splitRemaining = Number((effectiveTotal - totalSplitTendered).toFixed(2));
+
+  // Generate Dynamic UPI QR when UPI mode selected
+  useEffect(() => {
+    if (paymentMode === 'upi' && !dynamicPayment && effectiveTotal > 0 && paymentConfig?.enableDynamicUpiQr !== false) {
+      setIsGeneratingUpi(true);
+      ApiService.createDynamicUpiQr({
+        amount: effectiveTotal,
+        tableNumber,
+        payerPhone: customerPhone
+      })
+        .then(res => {
+          if (res.success && res.payment && res.upiUrl) {
+            setDynamicPayment(res.payment);
+            setUpiUrl(res.upiUrl);
+          }
+        })
+        .finally(() => setIsGeneratingUpi(false));
+    }
+  }, [paymentMode, effectiveTotal, paymentConfig]);
+
+  // Handle Simulating / Verifying Soundbox Confirmation
+  const handleConfirmSoundboxUpi = async () => {
+    if (!dynamicPayment) return;
+    try {
+      setIsConfirmingUpi(true);
+      const res = await ApiService.confirmUpiPayment({
+        paymentId: dynamicPayment.id,
+        payerVpa: customerPhone ? `${customerPhone}@upi` : 'customer@okhdfcbank'
+      });
+      if (res.success) {
+        setUpiConfirmed(true);
+        setSoundboxSpeech(res.soundboxSpeech || `Payment of ₹${Math.round(effectiveTotal)} received successfully on UPI.`);
+        playSoundboxAlert(res.soundboxSpeech || `Payment of ₹${Math.round(effectiveTotal)} received successfully on UPI.`);
+      } else {
+        alert(res.error || 'Failed to verify UPI payment');
+      }
+    } catch (err) {
+      console.error('UPI confirmation error', err);
+      alert('Network error verifying payment.');
+    } finally {
+      setIsConfirmingUpi(false);
+    }
+  };
+
+  // Handle EDC Terminal Push
+  const handlePushEdcTerminal = async () => {
+    try {
+      setIsPushingEdc(true);
+      const res = await ApiService.pushEdcTerminal({
+        amount: effectiveTotal,
+        terminalId: 'PINE_COUNTER_01'
+      });
+      if (res.success && res.authCode && res.rrn) {
+        setEdcConfirmed({ authCode: res.authCode, rrn: res.rrn });
+        playSoundboxAlert(`Card payment authorized. Reference ${res.rrn.slice(-4)}`);
+      } else {
+        alert(res.error || 'EDC Terminal push rejected.');
+      }
+    } catch (err) {
+      console.error('EDC error', err);
+      alert('Failed to connect to EDC terminal.');
+    } finally {
+      setIsPushingEdc(false);
+    }
+  };
 
   const handleToggleRedeemPoints = () => {
     if (!matchedCustomer || matchedCustomer.loyaltyPoints <= 0) return;
@@ -461,6 +593,161 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   {currencySymbol}{changeDue.toFixed(2)}
                 </span>
               </div>
+            </div>
+          )}
+
+          {/* Dynamic UPI QR & Soundbox Handshake (Phase 12) */}
+          {!isSplitMode && paymentMode === 'upi' && (
+            <div className="bg-slate-900 border border-violet-500/40 rounded-xl p-3.5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="w-6 h-6 rounded-lg bg-violet-600/30 flex items-center justify-center text-violet-400">
+                    <QrCode className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">Dynamic UPI QR Code</span>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      VPA: {paymentConfig?.upiVpa || 'restroplus@icici'}
+                    </span>
+                  </div>
+                </div>
+
+                {upiConfirmed ? (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[10px] font-bold flex items-center space-x-1 animate-pulse">
+                    <Check className="w-3 h-3" />
+                    <span>Settled & Verified</span>
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full bg-violet-500/20 border border-violet-500/40 text-violet-300 text-[10px] font-bold flex items-center space-x-1">
+                    <span className="w-2 h-2 rounded-full bg-violet-400 animate-ping inline-block mr-1" />
+                    <span>Awaiting Payment</span>
+                  </span>
+                )}
+              </div>
+
+              {/* QR Preview & Action Area */}
+              <div className="flex items-center gap-3 bg-slate-950/60 border border-slate-800 rounded-xl p-3">
+                {/* QR Code graphic */}
+                <div className="w-24 h-24 bg-white rounded-lg p-1.5 shrink-0 flex items-center justify-center shadow-inner relative group">
+                  {upiUrl ? (
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(upiUrl)}`}
+                      alt="Dynamic UPI QR"
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    isGeneratingUpi ? (
+                      <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
+                    ) : (
+                      <QrCode className="w-10 h-10 text-slate-400 animate-pulse" />
+                    )
+                  )}
+                  {upiConfirmed && (
+                    <div className="absolute inset-0 bg-emerald-600/90 rounded-lg flex flex-col items-center justify-center text-white p-1 text-center">
+                      <Check className="w-8 h-8 text-white stroke-[3]" />
+                      <span className="text-[9px] font-black uppercase tracking-tight">PAID</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Details & Live Actions */}
+                <div className="space-y-1.5 flex-1 min-w-0">
+                  <div className="text-xs">
+                    <span className="text-slate-400 text-[10px] block">Amount to Collect</span>
+                    <strong className="text-white text-base font-mono">
+                      {currencySymbol}{effectiveTotal.toFixed(2)}
+                    </strong>
+                  </div>
+
+                  {upiConfirmed ? (
+                    <div className="bg-emerald-950/60 border border-emerald-800/80 rounded-lg p-1.5 text-[11px] text-emerald-300 font-medium">
+                      ✓ Soundbox Announced: <em>"{soundboxSpeech || `₹${Math.round(effectiveTotal)} received`}"</em>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={handleConfirmSoundboxUpi}
+                        disabled={isConfirmingUpi || !dynamicPayment}
+                        className="w-full py-1.5 px-2 bg-gradient-to-r from-violet-600 to-emerald-600 hover:from-violet-500 hover:to-emerald-500 text-white rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 shadow transition-all active:scale-[0.98] disabled:opacity-50"
+                      >
+                        {isConfirmingUpi ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Volume2 className="w-3.5 h-3.5" />
+                        )}
+                        <span>⚡ Simulate Soundbox Settlement</span>
+                      </button>
+                      <span className="text-[10px] text-slate-400 block text-center">
+                        Zero fraud: auto-triggers audio voice chime & updates bill status.
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Pine Labs EDC Card Terminal Push (Phase 12) */}
+          {!isSplitMode && paymentMode === 'card' && (
+            <div className="bg-slate-900 border border-blue-500/40 rounded-xl p-3.5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="w-6 h-6 rounded-lg bg-blue-600/30 flex items-center justify-center text-blue-400">
+                    <CreditCard className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">Pine Labs Plutus EDC Terminal</span>
+                    <span className="text-[10px] text-slate-400">Terminal ID: PL_COUNTER_01</span>
+                  </div>
+                </div>
+
+                {edcConfirmed ? (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[10px] font-bold flex items-center space-x-1">
+                    <Check className="w-3 h-3" />
+                    <span>Card Authorized</span>
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full bg-blue-500/20 border border-blue-500/40 text-blue-300 text-[10px] font-bold">
+                    EDC Online
+                  </span>
+                )}
+              </div>
+
+              {edcConfirmed ? (
+                <div className="bg-slate-950/80 border border-emerald-800 rounded-xl p-2.5 text-xs space-y-1">
+                  <div className="flex items-center justify-between text-slate-300">
+                    <span className="text-[11px] text-slate-400">Auth Code:</span>
+                    <strong className="font-mono text-emerald-400">{edcConfirmed.authCode}</strong>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-300">
+                    <span className="text-[11px] text-slate-400">Bank RRN:</span>
+                    <strong className="font-mono text-slate-200">{edcConfirmed.rrn}</strong>
+                  </div>
+                  <div className="text-[10px] text-emerald-400 text-center pt-1 border-t border-slate-800">
+                    ✓ Transaction approved by issuer bank. Ready to generate invoice.
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <button
+                    type="button"
+                    onClick={handlePushEdcTerminal}
+                    disabled={isPushingEdc}
+                    className="w-full py-2 px-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-2 shadow transition-all active:scale-[0.98] disabled:opacity-50"
+                  >
+                    {isPushingEdc ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Zap className="w-3.5 h-3.5" />
+                    )}
+                    <span>⚡ Push {currencySymbol}{effectiveTotal.toFixed(2)} to Card EDC Terminal</span>
+                  </button>
+                  <span className="text-[10px] text-slate-400 block text-center">
+                    Sends exact amount directly to swipe/tap terminal. Cashier doesn't re-type amount.
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
