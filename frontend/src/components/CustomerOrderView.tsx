@@ -389,6 +389,19 @@ export const CustomerOrderView: React.FC<CustomerOrderViewProps> = ({
         )}
       </div>
 
+      {/* Store Paused Hospitality Banner */}
+      {profile.isAcceptingOrders === false && (
+        <div className="m-3 p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl shadow-xs space-y-1">
+          <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
+            <Coffee className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>Kitchen taking a brief pause!</span>
+          </div>
+          <p className="text-[11px] text-amber-700">
+            Online ordering is temporarily paused for prep. Feel free to explore our menu — your server will gladly take your order in person!
+          </p>
+        </div>
+      )}
+
       {/* Search Bar */}
       <div className="p-3 bg-white border-b border-canvas-border space-y-2">
         <div className="relative">

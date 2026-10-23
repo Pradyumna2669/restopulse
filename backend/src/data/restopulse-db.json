@@ -372,8 +372,9 @@
       "tableNumber": "RF-01",
       "section": "Rooftop Lounge",
       "capacity": 4,
-      "status": "vacant",
-      "qrToken": "sec_4e1a7c9b2d8f"
+      "status": "running",
+      "qrToken": "sec_4e1a7c9b2d8f",
+      "currentOrderId": "acff2161-aaf0-4274-a322-c939c935693a"
     },
     {
       "id": "tbl_roof2",
@@ -3032,9 +3033,378 @@
       "status": "kot_printed",
       "createdAt": "2026-10-23T06:42:09.963Z",
       "updatedAt": "2026-10-23T06:42:09.963Z"
+    },
+    {
+      "id": "ord_a2ce10fc",
+      "orderNumber": "ZOM-7657",
+      "type": "delivery",
+      "deliveryPartner": "zomato",
+      "partnerOrderId": "ZOM-7657",
+      "partnerPickupCode": "8925",
+      "partnerCommissionPercent": 18,
+      "partnerCommissionAmount": 13.5,
+      "partnerNetPayout": 61.5,
+      "partnerOrderStatus": "cancelled",
+      "customerName": "Sanjay Dutt",
+      "customerPhone": "+91 98765 43210",
+      "deliveryAddress": "Flat 402, Green Glen, Mumbai",
+      "riderName": "Mahesh (Honda Activa)",
+      "riderPhone": "9899001122",
+      "riderStatus": "assigned",
+      "items": [
+        {
+          "id": "item_1",
+          "name": "Paneer Butter Masala",
+          "quantity": 2,
+          "price": 320
+        },
+        {
+          "id": "item_2",
+          "name": "Garlic Naan",
+          "quantity": 4,
+          "price": 60
+        }
+      ],
+      "status": "cancelled",
+      "createdAt": "2026-10-23T12:27:46.112Z",
+      "updatedAt": "2026-10-23T12:27:46.170Z",
+      "orderId": "ZOM_ORD_1792758466111",
+      "subtotal": 880,
+      "tax": 44,
+      "deliveryFee": 40,
+      "total": 964,
+      "specialNotes": "[Cancelled by ZOMATO]: Customer cancelled order before food prep started"
+    },
+    {
+      "id": "ord_course_test_1792758471976",
+      "orderNumber": "TEST-CRS-101",
+      "type": "dine_in",
+      "tableNumber": "T-02",
+      "status": "preparing",
+      "items": [
+        {
+          "id": "item_app_1",
+          "menuItemId": "item_paneer_tikka",
+          "name": "Paneer Tikka Angara",
+          "quantity": 1,
+          "unitPrice": 280,
+          "station": "tandoor",
+          "kotStatus": "printed",
+          "course": "appetizer",
+          "courseStatus": "fired"
+        },
+        {
+          "id": "item_main_1",
+          "menuItemId": "item_butter_chicken",
+          "name": "Classic Butter Chicken",
+          "quantity": 2,
+          "unitPrice": 380,
+          "station": "kitchen",
+          "kotStatus": "printed",
+          "course": "main",
+          "courseStatus": "fired"
+        },
+        {
+          "id": "item_des_1",
+          "menuItemId": "item_gulab_jamun",
+          "name": "Gulab Jamun with Rabri",
+          "quantity": 2,
+          "unitPrice": 160,
+          "station": "dessert",
+          "kotStatus": "printed",
+          "course": "dessert",
+          "courseStatus": "fired"
+        }
+      ],
+      "createdAt": "2026-10-23T12:27:51.976Z",
+      "updatedAt": "2026-10-23T12:27:52.017Z"
+    },
+    {
+      "id": "bb1b4292-fb73-499c-8342-35794f44f53a",
+      "orderNumber": "ORD-0074",
+      "type": "takeaway",
+      "customerName": "Aarav Coffee Lover",
+      "takeawayToken": "TK-74",
+      "items": [
+        {
+          "id": "066c7b33-4470-4f07-9fc2-ea8e6d70eb7b",
+          "menuItemId": "item_virgin_mojito",
+          "name": "Fresh Mint Virgin Mojito",
+          "quantity": 2,
+          "unitPrice": 150,
+          "selectedAddons": [],
+          "specialNotes": "",
+          "station": "bar",
+          "kotStatus": "printed"
+        }
+      ],
+      "status": "kot_printed",
+      "createdAt": "2026-10-23T12:28:17.097Z",
+      "updatedAt": "2026-10-23T12:28:17.097Z"
+    },
+    {
+      "id": "ord_a9de53e3",
+      "orderNumber": "SWG-7311",
+      "type": "delivery",
+      "deliveryPartner": "swiggy",
+      "partnerOrderId": "SWG-7311",
+      "partnerPickupCode": "9853",
+      "partnerCommissionPercent": 20,
+      "partnerCommissionAmount": 76,
+      "partnerNetPayout": 304,
+      "partnerOrderStatus": "accepted",
+      "customerName": "Delivery Customer",
+      "customerPhone": "9876543210",
+      "deliveryAddress": "Block C, Indiranagar, Bengaluru",
+      "riderName": "Vikas (TVS Jupiter)",
+      "riderPhone": "9844332211",
+      "riderStatus": "assigned",
+      "items": [
+        {
+          "id": "poi_3656b52e",
+          "menuItemId": "item_butter_chicken",
+          "name": "Classic Butter Chicken",
+          "quantity": 1,
+          "unitPrice": 380,
+          "station": "kitchen",
+          "kotStatus": "pending"
+        }
+      ],
+      "status": "preparing",
+      "createdAt": "2026-10-23T12:28:17.132Z",
+      "updatedAt": "2026-10-23T12:28:17.132Z"
+    },
+    {
+      "id": "acff2161-aaf0-4274-a322-c939c935693a",
+      "orderNumber": "ORD-0076",
+      "type": "dine_in",
+      "tableId": "tbl_roof1",
+      "tableNumber": "RF-01",
+      "customerName": "Sharma Family",
+      "items": [
+        {
+          "id": "6fd4d388-6e66-4aa6-84c3-1e897b876b2c",
+          "menuItemId": "item_paneer_tikka",
+          "name": "Paneer Tikka Angara",
+          "quantity": 2,
+          "unitPrice": 280,
+          "selectedAddons": [],
+          "specialNotes": "",
+          "station": "tandoor",
+          "kotStatus": "printed"
+        },
+        {
+          "id": "36993063-636a-4ea9-a046-f5eeca8e31c9",
+          "menuItemId": "item_dal_makhani",
+          "name": "Dal Makhani Bukhara",
+          "quantity": 1,
+          "unitPrice": 260,
+          "selectedAddons": [],
+          "specialNotes": "",
+          "station": "kitchen",
+          "kotStatus": "printed"
+        }
+      ],
+      "status": "kot_printed",
+      "createdAt": "2026-10-23T12:28:17.171Z",
+      "updatedAt": "2026-10-23T12:28:17.171Z"
     }
   ],
   "bills": [
+    {
+      "id": "bill_test_voided_1792758478125",
+      "invoiceNumber": "INV-TEST-VOID-01",
+      "orderId": "ord_test_void_01",
+      "orderNumber": "VD-01",
+      "orderType": "dine_in",
+      "items": [],
+      "subtotal": 500,
+      "discountAmount": 0,
+      "cgstAmount": 12.5,
+      "sgstAmount": 12.5,
+      "roundOff": 0,
+      "total": 525,
+      "paymentMode": "cash",
+      "status": "cancelled",
+      "cancellationReason": "Guest changed mind before cooking",
+      "createdAt": "2026-10-23T12:27:58.125Z",
+      "whatsappInvoiceSent": false,
+      "whatsappReviewSent": false
+    },
+    {
+      "id": "bill_test_delivery_1792758478125",
+      "invoiceNumber": "INV-TEST-003",
+      "orderId": "ord_test_03",
+      "orderNumber": "ZOM-9901",
+      "orderType": "delivery",
+      "deliveryPartner": "zomato",
+      "partnerOrderId": "ZOM-9901",
+      "customerName": "Rohan Verma",
+      "items": [
+        {
+          "id": "it_4",
+          "menuItemId": "item_cold_coffee",
+          "name": "Signature Cold Brew",
+          "quantity": 2,
+          "unitPrice": 180,
+          "station": "counter",
+          "kotStatus": "prepared"
+        }
+      ],
+      "subtotal": 360,
+      "discountAmount": 0,
+      "cgstAmount": 9,
+      "sgstAmount": 9,
+      "roundOff": 0,
+      "total": 378,
+      "paymentMode": "card",
+      "status": "paid",
+      "createdAt": "2026-10-23T12:27:58.125Z",
+      "whatsappInvoiceSent": false,
+      "whatsappReviewSent": false
+    },
+    {
+      "id": "bill_test_takeaway_1792758478125",
+      "invoiceNumber": "INV-TEST-002",
+      "orderId": "ord_test_02",
+      "orderNumber": "TK-02",
+      "orderType": "takeaway",
+      "takeawayToken": "TK-105",
+      "customerName": "Sunita Rao",
+      "items": [
+        {
+          "id": "it_3",
+          "menuItemId": "item_biryani",
+          "name": "Hyderabadi Chicken Dum Biryani",
+          "quantity": 1,
+          "unitPrice": 320,
+          "station": "kitchen",
+          "kotStatus": "prepared"
+        }
+      ],
+      "subtotal": 320,
+      "discountAmount": 50,
+      "discountReason": "Happy Hour Special",
+      "cgstAmount": 6.75,
+      "sgstAmount": 6.75,
+      "roundOff": 0.5,
+      "total": 284,
+      "paymentMode": "upi",
+      "staffId": "staff-cashier-01",
+      "staffName": "Pooja Sharma (Head Cashier)",
+      "status": "paid",
+      "createdAt": "2026-10-23T12:27:58.125Z",
+      "whatsappInvoiceSent": false,
+      "whatsappReviewSent": false
+    },
+    {
+      "id": "bill_test_dinein_1792758478125",
+      "invoiceNumber": "INV-TEST-001",
+      "orderId": "ord_test_01",
+      "orderNumber": "T01-01",
+      "orderType": "dine_in",
+      "tableNumber": "T-01",
+      "customerName": "Aarav Mehta",
+      "items": [
+        {
+          "id": "it_1",
+          "menuItemId": "item_butter_chicken",
+          "name": "Classic Butter Chicken",
+          "quantity": 2,
+          "unitPrice": 380,
+          "station": "kitchen",
+          "kotStatus": "prepared"
+        },
+        {
+          "id": "it_2",
+          "menuItemId": "item_garlic_naan",
+          "name": "Garlic Butter Naan",
+          "quantity": 4,
+          "unitPrice": 60,
+          "station": "tandoor",
+          "kotStatus": "prepared"
+        }
+      ],
+      "subtotal": 1000,
+      "discountAmount": 250,
+      "discountReason": "Manager VIP Courtesy",
+      "cgstAmount": 18.75,
+      "sgstAmount": 18.75,
+      "roundOff": 0.5,
+      "total": 788,
+      "paymentMode": "cash",
+      "staffId": "staff-waiter-01",
+      "staffName": "Amit Kumar (Lead Captain)",
+      "servedBy": "Amit Kumar",
+      "status": "paid",
+      "createdAt": "2026-10-23T12:27:58.125Z",
+      "whatsappInvoiceSent": false,
+      "whatsappReviewSent": false
+    },
+    {
+      "id": "bill_1792758463261",
+      "invoiceNumber": "INV-OFFLINE-001",
+      "orderId": "ord_offline_001",
+      "orderNumber": "OFF-01",
+      "orderType": "takeaway",
+      "clientTxId": "offline_tx_1792758463261",
+      "isOffline": true,
+      "items": [
+        {
+          "id": "i1",
+          "menuItemId": "item_coffee",
+          "name": "Cappuccino",
+          "quantity": 1,
+          "unitPrice": 150,
+          "station": "counter",
+          "kotStatus": "prepared"
+        }
+      ],
+      "subtotal": 150,
+      "discountAmount": 0,
+      "cgstAmount": 3.75,
+      "sgstAmount": 3.75,
+      "roundOff": -0.5,
+      "total": 157,
+      "paymentMode": "cash",
+      "status": "paid",
+      "createdAt": "2026-10-23T12:27:43.261Z",
+      "whatsappInvoiceSent": false,
+      "whatsappReviewSent": false
+    },
+    {
+      "id": "test_bill_1792758460105",
+      "invoiceNumber": "INV-2026-TEST-9467",
+      "orderId": "test_order_01",
+      "orderNumber": "TEST-01",
+      "orderType": "dine_in",
+      "tableNumber": "T-01",
+      "items": [
+        {
+          "id": "item_1",
+          "menuItemId": "item_coffee",
+          "name": "Artisan Latte",
+          "quantity": 2,
+          "unitPrice": 150,
+          "station": "counter",
+          "kotStatus": "prepared"
+        }
+      ],
+      "subtotal": 300,
+      "discountAmount": 0,
+      "cgstAmount": 7.5,
+      "sgstAmount": 7.5,
+      "roundOff": 0,
+      "total": 315,
+      "paymentMode": "cash",
+      "status": "cancelled",
+      "createdAt": "2026-10-23T12:27:40.105Z",
+      "whatsappInvoiceSent": false,
+      "whatsappReviewSent": false,
+      "cancelledAt": "2026-10-23T12:27:40.116Z",
+      "cancelledBy": "Pooja Sharma (cashier)",
+      "cancellationReason": "Guest changed mind before preparation"
+    },
     {
       "id": "bill_test_voided_1792737715058",
       "invoiceNumber": "INV-TEST-VOID-01",
@@ -6344,7 +6714,7 @@
       "name": "Amul Butter",
       "category": "Dairy",
       "unit": "kg",
-      "currentStock": 5,
+      "currentStock": 0,
       "reorderLevel": 2,
       "costPerUnit": 480,
       "lastRestockedAt": "2026-10-20T15:57:03.021Z",
@@ -6367,13 +6737,13 @@
       "name": "Fresh Malai Paneer",
       "category": "Dairy",
       "unit": "kg",
-      "currentStock": 142,
+      "currentStock": 132,
       "reorderLevel": 3,
       "costPerUnit": 310,
-      "lastRestockedAt": "2026-10-23T06:41:45.142Z",
+      "lastRestockedAt": "2026-10-23T12:27:48.997Z",
       "outletStocks": {
-        "outlet_delhi_01": 142,
-        "outlet_blr_01": 207
+        "outlet_delhi_01": 132,
+        "outlet_blr_01": 217
       }
     },
     {
@@ -6438,6 +6808,17 @@
     }
   ],
   "stockInwardLogs": [
+    {
+      "id": "inw_83dfe8ab",
+      "rawMaterialId": "raw_paneer",
+      "rawMaterialName": "Fresh Malai Paneer",
+      "quantityAdded": 15,
+      "unit": "kg",
+      "costPrice": 310,
+      "supplierName": "Godrej Agrovet Farms",
+      "purchaseOrderId": "po_test_1792758468986",
+      "createdAt": "2026-10-23T12:27:48.997Z"
+    },
     {
       "id": "inw_26f5abe4",
       "rawMaterialId": "raw_paneer",
@@ -6707,7 +7088,7 @@
     "id": "shift_today",
     "openedAt": "2026-10-20T09:57:03.021Z",
     "openingFloat": 2500,
-    "cashSales": 20837,
+    "cashSales": 22307,
     "pettyExpenses": [
       {
         "id": "exp_1",
@@ -6724,7 +7105,7 @@
         "createdAt": "2026-10-20T13:57:03.021Z"
       }
     ],
-    "expectedCash": 22807,
+    "expectedCash": 24277,
     "status": "open"
   },
   "customers": [
@@ -6801,7 +7182,7 @@
       "favoriteItems": [
         "Paneer Tikka"
       ],
-      "lastVisit": "2026-10-18T06:42:13.445Z",
+      "lastVisit": "2026-10-18T12:28:20.401Z",
       "notes": "",
       "birthday": "1995-10-23"
     },
@@ -6817,7 +7198,7 @@
       "favoriteItems": [
         "Cold Brew"
       ],
-      "lastVisit": "2026-10-11T06:42:13.445Z",
+      "lastVisit": "2026-10-11T12:28:20.401Z",
       "notes": ""
     },
     {
@@ -6832,7 +7213,7 @@
       "favoriteItems": [
         "Butter Chicken"
       ],
-      "lastVisit": "2026-09-13T06:42:13.445Z",
+      "lastVisit": "2026-09-13T12:28:20.401Z",
       "notes": ""
     },
     {
@@ -6847,7 +7228,7 @@
       "favoriteItems": [
         "Espresso"
       ],
-      "lastVisit": "2026-08-09T06:42:13.445Z",
+      "lastVisit": "2026-08-09T12:28:20.401Z",
       "notes": ""
     },
     {
@@ -6862,11 +7243,25 @@
       "favoriteItems": [
         "Croissant"
       ],
-      "lastVisit": "2026-10-21T06:42:13.445Z",
+      "lastVisit": "2026-10-21T12:28:20.401Z",
       "notes": ""
     }
   ],
   "reservations": [
+    {
+      "id": "res_b68678c9",
+      "guestName": "Ambassador V.K. Singhania",
+      "guestPhone": "9811002233",
+      "pax": 4,
+      "tableId": "tbl_roof1",
+      "tableNumber": "RF-01",
+      "reservationDate": "2026-10-25",
+      "reservationTime": "20:00",
+      "advanceDeposit": 0,
+      "specialRequest": "Anniversary celebration",
+      "status": "confirmed",
+      "createdAt": "2026-10-23T12:28:17.211Z"
+    },
     {
       "id": "res_195bb4f3",
       "guestName": "Ambassador V.K. Singhania",
@@ -7100,6 +7495,521 @@
     }
   ],
   "auditLogs": [
+    {
+      "userId": "system",
+      "userName": "System Feedback Sentinel",
+      "role": "manager",
+      "action": "GUEST_DETRACTOR_ALERT",
+      "entityType": "customer",
+      "entityId": "fb_38636893",
+      "details": {
+        "customerName": "Rahul Verma",
+        "customerPhone": "9899887766",
+        "rating": 1,
+        "feedbackText": "Order arrived cold and the server was inattentive."
+      },
+      "reason": "Low customer rating received (1-2 stars). Service recovery required.",
+      "id": "audit_1792758500595_0isi3",
+      "timestamp": "2026-10-23T12:28:20.595Z"
+    },
+    {
+      "userId": "staff-manager-01",
+      "userName": "Manager",
+      "role": "manager",
+      "action": "MARKETING_CAMPAIGN_BROADCAST",
+      "entityType": "customer",
+      "entityId": "cmp_test_winback",
+      "details": {
+        "campaignTitle": "Win-Back Exclusive 20% Off",
+        "targetSegment": "at_risk",
+        "recipientCount": 1,
+        "deliveredCount": 0,
+        "failedCount": 1
+      },
+      "id": "audit_1792758500564_f406w",
+      "timestamp": "2026-10-23T12:28:20.564Z"
+    },
+    {
+      "userId": "cust_a4a30a17",
+      "userName": "Rohan Sharma (Loyalty VIP)",
+      "role": "cashier",
+      "action": "LOYALTY_POINTS_REDEEMED",
+      "entityType": "customer",
+      "entityId": "cust_a4a30a17",
+      "details": {
+        "pointsRedeemed": 100,
+        "discountAmount": 100,
+        "remainingBalance": 100,
+        "billTotal": 1000
+      },
+      "id": "audit_1792758474987_m4plc",
+      "timestamp": "2026-10-23T12:27:54.987Z"
+    },
+    {
+      "userId": "kds-captain",
+      "userName": "Kitchen Captain",
+      "role": "kitchen",
+      "action": "KDS_COURSE_FIRED",
+      "entityType": "order",
+      "entityId": "ord_course_test_1792758471976",
+      "details": {
+        "orderNumber": "TEST-CRS-101",
+        "tableNumber": "T-02",
+        "courseFired": "main",
+        "itemsCount": 1
+      },
+      "id": "audit_1792758472006_ookjp",
+      "timestamp": "2026-10-23T12:27:52.006Z"
+    },
+    {
+      "userId": "staff-mgr-01",
+      "userName": "Vikram Malhotra (Store Manager)",
+      "role": "manager",
+      "action": "STOCK_WASTAGE_RECORDED",
+      "entityType": "inventory",
+      "entityId": "raw_tomato",
+      "reason": "spoilage",
+      "details": {
+        "materialName": "Fresh Red Tomatoes",
+        "quantityWasted": 2.5,
+        "unit": "kg",
+        "costImpact": 87.5,
+        "notes": "Rotten batch from vegetable crate"
+      },
+      "id": "audit_1792758469053_g0juz",
+      "timestamp": "2026-10-23T12:27:49.053Z"
+    },
+    {
+      "userId": "procurement-mgr",
+      "userName": "Chef Sanjeev",
+      "role": "inventory",
+      "action": "STOCK_INWARD_PO_RECEIVED",
+      "entityType": "inventory",
+      "entityId": "po_test_1792758468986",
+      "details": {
+        "poNumber": "PO-TEST-909",
+        "supplierName": "Godrej Agrovet Farms",
+        "totalItems": 1,
+        "totalAmount": 4882.5
+      },
+      "id": "audit_1792758469015_b6wap",
+      "timestamp": "2026-10-23T12:27:49.015Z"
+    },
+    {
+      "userId": "staff-mgr-01",
+      "userName": "Vikram Malhotra (Store Manager)",
+      "role": "manager",
+      "action": "PAYMENT_REFUNDED",
+      "entityType": "bill",
+      "entityId": "pay_aec9d160-e217-4cc1-9b28-f917f8941e58",
+      "reason": "Guest charged twice due to bank UPI lag",
+      "approvedBy": {
+        "userId": "staff-mgr-01",
+        "userName": "Vikram Malhotra (Store Manager)",
+        "role": "manager"
+      },
+      "details": {
+        "paymentId": "pay_aec9d160-e217-4cc1-9b28-f917f8941e58",
+        "amountRefunded": 1250,
+        "originalAmount": 1250
+      },
+      "id": "audit_1792758466247_h0zs1",
+      "timestamp": "2026-10-23T12:27:46.247Z"
+    },
+    {
+      "userId": "payment-gateway",
+      "userName": "RAZORPAY Gateway",
+      "role": "cashier",
+      "action": "PAYMENT_SETTLED",
+      "entityType": "bill",
+      "entityId": "pay_aec9d160-e217-4cc1-9b28-f917f8941e58",
+      "details": {
+        "paymentId": "pay_aec9d160-e217-4cc1-9b28-f917f8941e58",
+        "amount": 1250,
+        "provider": "razorpay",
+        "method": "upi"
+      },
+      "id": "audit_1792758466221_wb92l",
+      "timestamp": "2026-10-23T12:27:46.221Z"
+    },
+    {
+      "userId": "aggregator-zomato",
+      "userName": "ZOMATO Webhook",
+      "role": "manager",
+      "action": "AGGREGATOR_ORDER_CANCELLED",
+      "entityType": "order",
+      "entityId": "ord_a2ce10fc",
+      "reason": "Customer cancelled order before food prep started",
+      "details": {
+        "eventId": "evt_cancel_1792758466169_7o4h",
+        "partnerOrderId": "ZOM-7657"
+      },
+      "id": "audit_1792758466179_lvmpj",
+      "timestamp": "2026-10-23T12:27:46.179Z"
+    },
+    {
+      "userId": "aggregator-zomato",
+      "userName": "ZOMATO Gateway",
+      "role": "cashier",
+      "action": "AGGREGATOR_ORDER_INGESTED",
+      "entityType": "order",
+      "entityId": "ord_a2ce10fc",
+      "details": {
+        "eventId": "evt_order_1792758466111_f977",
+        "partnerOrderId": "ZOM-7657",
+        "netPayout": 61.5,
+        "commissionAmount": 13.5
+      },
+      "id": "audit_1792758466150_4c4mu",
+      "timestamp": "2026-10-23T12:27:46.150Z"
+    },
+    {
+      "userId": "test-staff-24",
+      "userName": "Staff 24",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-24",
+      "details": {
+        "iteration": 24
+      },
+      "id": "audit_1792758460386_udjgs",
+      "timestamp": "2026-10-23T12:27:40.386Z"
+    },
+    {
+      "userId": "test-staff-23",
+      "userName": "Staff 23",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-23",
+      "details": {
+        "iteration": 23
+      },
+      "id": "audit_1792758460377_4f2pa",
+      "timestamp": "2026-10-23T12:27:40.377Z"
+    },
+    {
+      "userId": "test-staff-22",
+      "userName": "Staff 22",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-22",
+      "details": {
+        "iteration": 22
+      },
+      "id": "audit_1792758460367_hrkly",
+      "timestamp": "2026-10-23T12:27:40.367Z"
+    },
+    {
+      "userId": "test-staff-21",
+      "userName": "Staff 21",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-21",
+      "details": {
+        "iteration": 21
+      },
+      "id": "audit_1792758460357_pftfz",
+      "timestamp": "2026-10-23T12:27:40.357Z"
+    },
+    {
+      "userId": "test-staff-20",
+      "userName": "Staff 20",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-20",
+      "details": {
+        "iteration": 20
+      },
+      "id": "audit_1792758460348_mn0gp",
+      "timestamp": "2026-10-23T12:27:40.348Z"
+    },
+    {
+      "userId": "test-staff-19",
+      "userName": "Staff 19",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-19",
+      "details": {
+        "iteration": 19
+      },
+      "id": "audit_1792758460334_j5dbu",
+      "timestamp": "2026-10-23T12:27:40.334Z"
+    },
+    {
+      "userId": "test-staff-18",
+      "userName": "Staff 18",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-18",
+      "details": {
+        "iteration": 18
+      },
+      "id": "audit_1792758460325_zz69o",
+      "timestamp": "2026-10-23T12:27:40.325Z"
+    },
+    {
+      "userId": "test-staff-17",
+      "userName": "Staff 17",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-17",
+      "details": {
+        "iteration": 17
+      },
+      "id": "audit_1792758460314_lf2lt",
+      "timestamp": "2026-10-23T12:27:40.314Z"
+    },
+    {
+      "userId": "test-staff-16",
+      "userName": "Staff 16",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-16",
+      "details": {
+        "iteration": 16
+      },
+      "id": "audit_1792758460302_0qvgq",
+      "timestamp": "2026-10-23T12:27:40.302Z"
+    },
+    {
+      "userId": "test-staff-15",
+      "userName": "Staff 15",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-15",
+      "details": {
+        "iteration": 15
+      },
+      "id": "audit_1792758460292_8znpa",
+      "timestamp": "2026-10-23T12:27:40.292Z"
+    },
+    {
+      "userId": "test-staff-14",
+      "userName": "Staff 14",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-14",
+      "details": {
+        "iteration": 14
+      },
+      "id": "audit_1792758460282_fj52g",
+      "timestamp": "2026-10-23T12:27:40.282Z"
+    },
+    {
+      "userId": "test-staff-13",
+      "userName": "Staff 13",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-13",
+      "details": {
+        "iteration": 13
+      },
+      "id": "audit_1792758460271_q9ch1",
+      "timestamp": "2026-10-23T12:27:40.271Z"
+    },
+    {
+      "userId": "test-staff-12",
+      "userName": "Staff 12",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-12",
+      "details": {
+        "iteration": 12
+      },
+      "id": "audit_1792758460262_2oi5a",
+      "timestamp": "2026-10-23T12:27:40.262Z"
+    },
+    {
+      "userId": "test-staff-11",
+      "userName": "Staff 11",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-11",
+      "details": {
+        "iteration": 11
+      },
+      "id": "audit_1792758460252_omx6i",
+      "timestamp": "2026-10-23T12:27:40.252Z"
+    },
+    {
+      "userId": "test-staff-10",
+      "userName": "Staff 10",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-10",
+      "details": {
+        "iteration": 10
+      },
+      "id": "audit_1792758460242_kbg1d",
+      "timestamp": "2026-10-23T12:27:40.242Z"
+    },
+    {
+      "userId": "test-staff-9",
+      "userName": "Staff 9",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-9",
+      "details": {
+        "iteration": 9
+      },
+      "id": "audit_1792758460233_fgd4n",
+      "timestamp": "2026-10-23T12:27:40.233Z"
+    },
+    {
+      "userId": "test-staff-8",
+      "userName": "Staff 8",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-8",
+      "details": {
+        "iteration": 8
+      },
+      "id": "audit_1792758460217_0rzo6",
+      "timestamp": "2026-10-23T12:27:40.218Z"
+    },
+    {
+      "userId": "test-staff-7",
+      "userName": "Staff 7",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-7",
+      "details": {
+        "iteration": 7
+      },
+      "id": "audit_1792758460207_m49qm",
+      "timestamp": "2026-10-23T12:27:40.207Z"
+    },
+    {
+      "userId": "test-staff-6",
+      "userName": "Staff 6",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-6",
+      "details": {
+        "iteration": 6
+      },
+      "id": "audit_1792758460197_tjygk",
+      "timestamp": "2026-10-23T12:27:40.197Z"
+    },
+    {
+      "userId": "test-staff-5",
+      "userName": "Staff 5",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-5",
+      "details": {
+        "iteration": 5
+      },
+      "id": "audit_1792758460187_7hsgf",
+      "timestamp": "2026-10-23T12:27:40.187Z"
+    },
+    {
+      "userId": "test-staff-4",
+      "userName": "Staff 4",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-4",
+      "details": {
+        "iteration": 4
+      },
+      "id": "audit_1792758460177_6gpfc",
+      "timestamp": "2026-10-23T12:27:40.177Z"
+    },
+    {
+      "userId": "test-staff-3",
+      "userName": "Staff 3",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-3",
+      "details": {
+        "iteration": 3
+      },
+      "id": "audit_1792758460167_bt13g",
+      "timestamp": "2026-10-23T12:27:40.167Z"
+    },
+    {
+      "userId": "test-staff-2",
+      "userName": "Staff 2",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-2",
+      "details": {
+        "iteration": 2
+      },
+      "id": "audit_1792758460156_jsgkq",
+      "timestamp": "2026-10-23T12:27:40.156Z"
+    },
+    {
+      "userId": "test-staff-1",
+      "userName": "Staff 1",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-1",
+      "details": {
+        "iteration": 1
+      },
+      "id": "audit_1792758460148_755ce",
+      "timestamp": "2026-10-23T12:27:40.148Z"
+    },
+    {
+      "userId": "test-staff-0",
+      "userName": "Staff 0",
+      "role": "cashier",
+      "action": "CONCURRENT_TEST_EVENT",
+      "entityType": "staff",
+      "entityId": "test-staff-0",
+      "details": {
+        "iteration": 0
+      },
+      "id": "audit_1792758460137_6tg11",
+      "timestamp": "2026-10-23T12:27:40.137Z"
+    },
+    {
+      "userId": "staff-cashier-01",
+      "userName": "Pooja Sharma",
+      "role": "cashier",
+      "action": "BILL_VOIDED",
+      "entityType": "bill",
+      "entityId": "test_bill_1792758460105",
+      "details": {
+        "invoiceNumber": "INV-2026-TEST-9467",
+        "total": 315,
+        "paymentMode": "cash",
+        "previousStatus": "paid"
+      },
+      "reason": "Guest changed mind before preparation",
+      "approvedBy": {
+        "userId": "staff-mgr-01",
+        "userName": "Vikram Malhotra",
+        "role": "manager"
+      },
+      "id": "audit_1792758460116_keldz",
+      "timestamp": "2026-10-23T12:27:40.116Z"
+    },
     {
       "userId": "system",
       "userName": "System Feedback Sentinel",
@@ -19301,6 +20211,29 @@
   ],
   "payments": [
     {
+      "id": "pay_aec9d160-e217-4cc1-9b28-f917f8941e58",
+      "amount": 1250,
+      "currency": "INR",
+      "provider": "razorpay",
+      "providerTransactionId": "RZP_PAY_SETTLED_999",
+      "status": "refunded",
+      "idempotencyKey": "idem_pay_1792758466200_test",
+      "paymentMethod": "upi",
+      "payerDetails": {
+        "phone": "+91 99999 88888",
+        "vpa": "sanjay@okhdfcbank"
+      },
+      "createdAt": "2026-10-23T12:27:46.200Z",
+      "updatedAt": "2026-10-23T12:27:46.236Z",
+      "refundDetails": {
+        "refundId": "ref_1792758466236",
+        "amount": 1250,
+        "reason": "Guest charged twice due to bank UPI lag",
+        "refundedAt": "2026-10-23T12:27:46.236Z",
+        "approvedBy": "Vikram Malhotra (Store Manager) (manager)"
+      }
+    },
+    {
       "id": "pay_eefd081c-848d-4aea-bcfe-4330768fc183",
       "amount": 1250,
       "currency": "INR",
@@ -19854,6 +20787,33 @@
     }
   ],
   "webhookLogs": [
+    {
+      "eventId": "evt_cancel_1792758466169_7o4h",
+      "partner": "zomato",
+      "signatureValid": true,
+      "status": "processed",
+      "orderId": "ord_a2ce10fc",
+      "id": "wh_1792758466189_dqg3b",
+      "timestamp": "2026-10-23T12:27:46.189Z"
+    },
+    {
+      "eventId": "evt_order_1792758466111_f977",
+      "partner": "zomato",
+      "signatureValid": true,
+      "status": "duplicate_skipped",
+      "orderId": "ZOM_ORD_1792758466111",
+      "id": "wh_1792758466160_kmcdm",
+      "timestamp": "2026-10-23T12:27:46.160Z"
+    },
+    {
+      "eventId": "evt_order_1792758466111_f977",
+      "partner": "zomato",
+      "signatureValid": true,
+      "status": "processed",
+      "orderId": "ord_a2ce10fc",
+      "id": "wh_1792758466140_3lksa",
+      "timestamp": "2026-10-23T12:27:46.140Z"
+    },
     {
       "eventId": "evt_cancel_1792737701862_52os",
       "partner": "zomato",
@@ -20962,9 +21922,51 @@
       "rating": 4.9,
       "active": true,
       "createdAt": "2026-10-23T06:41:45.109Z"
+    },
+    {
+      "id": "sup_test_1792758468969",
+      "name": "Godrej Agrovet Farms",
+      "contactPerson": "Arun Kulkarni",
+      "phone": "+91 98220 55443",
+      "email": "arun@godrejagrovet.com",
+      "gstin": "27AABCG9988H1Z4",
+      "address": "Pune Highway, Hadapsar, Pune",
+      "categoriesSupplied": [
+        "Poultry",
+        "Dairy"
+      ],
+      "paymentTerms": "net_30",
+      "rating": 4.9,
+      "active": true,
+      "createdAt": "2026-10-23T12:27:48.969Z"
     }
   ],
   "purchaseOrders": [
+    {
+      "id": "po_test_1792758468986",
+      "poNumber": "PO-TEST-909",
+      "supplierId": "sup_test_1792758468969",
+      "supplierName": "Godrej Agrovet Farms",
+      "status": "received",
+      "items": [
+        {
+          "rawMaterialId": "raw_paneer",
+          "rawMaterialName": "Fresh Malai Paneer",
+          "quantity": 15,
+          "unit": "kg",
+          "unitCost": 310,
+          "totalCost": 4650
+        }
+      ],
+      "subtotal": 4650,
+      "tax": 232.5,
+      "totalAmount": 4882.5,
+      "expectedDeliveryDate": "2026-10-23T12:27:48.986Z",
+      "createdAt": "2026-10-23T12:27:48.986Z",
+      "updatedAt": "2026-10-23T12:27:49.006Z",
+      "receivedAt": "2026-10-23T12:27:49.006Z",
+      "receivedBy": "Chef Sanjeev"
+    },
     {
       "id": "po_test_1792737705130",
       "poNumber": "PO-TEST-909",
@@ -21632,6 +22634,23 @@
   ],
   "wastageLogs": [
     {
+      "id": "wst_e8af1636-e913-418e-a7fc-595871231bcf",
+      "rawMaterialId": "raw_tomato",
+      "rawMaterialName": "Fresh Red Tomatoes",
+      "quantity": 2.5,
+      "unit": "kg",
+      "cost": 87.5,
+      "reason": "spoilage",
+      "loggedBy": "Line Cook",
+      "managerApproval": {
+        "userId": "staff-mgr-01",
+        "userName": "Vikram Malhotra (Store Manager)",
+        "role": "manager"
+      },
+      "notes": "Rotten batch from vegetable crate",
+      "createdAt": "2026-10-23T12:27:49.044Z"
+    },
+    {
       "id": "wst_8593ee6b-60a4-4dc5-9518-f2f9c1d836b3",
       "rawMaterialId": "raw_tomato",
       "rawMaterialName": "Fresh Red Tomatoes",
@@ -22041,6 +23060,28 @@
     }
   ],
   "waiterCalls": [
+    {
+      "id": "call_e5a0f8d9",
+      "tableId": "tbl_roof1",
+      "tableNumber": "RF-01",
+      "type": "service",
+      "message": "Wine recommendations requested",
+      "status": "resolved",
+      "createdAt": "2026-10-23T12:28:17.237Z",
+      "resolvedAt": "2026-10-23T12:28:17.250Z",
+      "assignedWaiter": "Captain Vikram"
+    },
+    {
+      "id": "call_3ce6e1b9",
+      "tableId": "tbl_t3",
+      "tableNumber": "T-03",
+      "type": "bill",
+      "message": "Guest requested final invoice with cash settlement",
+      "status": "resolved",
+      "createdAt": "2026-10-23T12:27:52.029Z",
+      "resolvedAt": "2026-10-23T12:27:52.038Z",
+      "assignedWaiter": "Captain Amit Kumar"
+    },
     {
       "id": "call_119fc7fc",
       "tableId": "tbl_ac3",
@@ -22832,6 +23873,36 @@
       "id": "outlet_3be588b5",
       "createdAt": "2026-10-23T06:41:58.243Z",
       "updatedAt": "2026-10-23T06:41:58.253Z"
+    },
+    {
+      "orgId": "org_pulse_01",
+      "brandId": "brand_tdg",
+      "code": "TDG-PUN-01",
+      "name": "The Daily Grind - Koregaon Park (Cloud Kitchen)",
+      "tier": "cloud_kitchen",
+      "isFranchise": true,
+      "franchiseOwnerName": "Aditi & Rohan Kulkarni",
+      "franchiseContactPhone": "+91 98220 54321",
+      "franchiseRoyaltyPercent": 5.5,
+      "marketingLevyPercent": 2,
+      "gstin": "27EEEEE4444E1Z7",
+      "fssaiNumber": "12721005000999",
+      "phone": "+91 20 2615 8899",
+      "email": "pune.koregaon@restopulse.com",
+      "address": {
+        "street": "Lane 7, Koregaon Park",
+        "city": "Pune",
+        "state": "Maharashtra",
+        "pincode": "411001",
+        "stateCode": "27"
+      },
+      "posTerminalCount": 2,
+      "active": true,
+      "openingTime": "09:00",
+      "closingTime": "23:00",
+      "id": "outlet_6c6f7025",
+      "createdAt": "2026-10-23T12:28:00.890Z",
+      "updatedAt": "2026-10-23T12:28:00.898Z"
     }
   ],
   "outletMenuOverrides": [
@@ -22861,6 +23932,106 @@
     }
   ],
   "stockTransfers": [
+    {
+      "id": "ist_a03b1dc6",
+      "transferNumber": "IST-2026-025",
+      "sourceOutletId": "outlet_delhi_01",
+      "sourceOutletName": "The Daily Grind - Connaught Place (Flagship)",
+      "destinationOutletId": "outlet_mum_01",
+      "destinationOutletName": "The Daily Grind - Bandra West (Franchise)",
+      "status": "cancelled",
+      "items": [
+        {
+          "rawMaterialId": "raw_butter",
+          "rawMaterialName": "Amul Butter",
+          "unit": "kg",
+          "quantityRequested": 5,
+          "unitCost": 480,
+          "totalCost": 2400,
+          "quantityDispatched": 5
+        }
+      ],
+      "subtotalCost": 2400,
+      "requestedBy": {
+        "userId": "staff_mum",
+        "userName": "Zubin Mehta",
+        "role": "Franchise Partner",
+        "timestamp": "2026-10-23T12:28:00.966Z"
+      },
+      "createdAt": "2026-10-23T12:28:00.966Z",
+      "updatedAt": "2026-10-23T12:28:00.995Z",
+      "approvedBy": {
+        "userId": "usr_mgr",
+        "userName": "Mgr",
+        "role": "manager",
+        "timestamp": "2026-10-23T12:28:00.977Z"
+      },
+      "dispatchedBy": {
+        "userId": "wh",
+        "userName": "WH",
+        "role": "inventory",
+        "timestamp": "2026-10-23T12:28:00.986Z"
+      },
+      "cancelledBy": {
+        "userId": "usr_mgr",
+        "userName": "Vikram",
+        "role": "manager",
+        "reason": "Vehicle breakdown, shipment recalled",
+        "timestamp": "2026-10-23T12:28:00.995Z"
+      }
+    },
+    {
+      "id": "ist_f9b5282a",
+      "transferNumber": "IST-2026-024",
+      "sourceOutletId": "outlet_delhi_01",
+      "sourceOutletName": "The Daily Grind - Connaught Place (Flagship)",
+      "destinationOutletId": "outlet_blr_01",
+      "destinationOutletName": "The Daily Grind - Indiranagar (Franchise)",
+      "status": "received",
+      "items": [
+        {
+          "rawMaterialId": "raw_paneer",
+          "rawMaterialName": "Fresh Malai Paneer",
+          "unit": "kg",
+          "quantityRequested": 10,
+          "unitCost": 310,
+          "totalCost": 3100,
+          "quantityDispatched": 10,
+          "quantityReceived": 10
+        }
+      ],
+      "subtotalCost": 3100,
+      "notes": "Urgent weekend stock transfer for Indiranagar peak service",
+      "requestedBy": {
+        "userId": "staff_mgr_blr",
+        "userName": "Naveen Gowda",
+        "role": "Franchise Partner",
+        "timestamp": "2026-10-23T12:28:00.929Z"
+      },
+      "createdAt": "2026-10-23T12:28:00.929Z",
+      "updatedAt": "2026-10-23T12:28:00.957Z",
+      "approvedBy": {
+        "userId": "usr_mgr_01",
+        "userName": "Vikram Malhotra",
+        "role": "Central Ops Head",
+        "timestamp": "2026-10-23T12:28:00.938Z"
+      },
+      "dispatchedBy": {
+        "userId": "usr_wh_01",
+        "userName": "Ramesh Verma",
+        "role": "Central Warehouse Keeper",
+        "timestamp": "2026-10-23T12:28:00.946Z"
+      },
+      "carrierName": "Blue Dart Cold Express",
+      "trackingReference": "BD-EXP-9921",
+      "vehicleNumber": "DL-01-XY-5544",
+      "receivedBy": {
+        "userId": "staff_blr_02",
+        "userName": "Deepak Rao",
+        "role": "Storekeeper",
+        "timestamp": "2026-10-23T12:28:00.957Z"
+      }
+    },
     {
       "id": "ist_84aa7ae8",
       "transferNumber": "IST-2026-023",
@@ -24030,7 +25201,7 @@
       "deliveredCount": 0,
       "failedCount": 1,
       "createdAt": "2026-10-23T06:22:58.071Z",
-      "sentAt": "2026-10-23T06:42:13.626Z"
+      "sentAt": "2026-10-23T12:28:20.554Z"
     },
     {
       "id": "cmp_test_winback",
@@ -24073,6 +25244,20 @@
       "deliveredCount": 0,
       "failedCount": 0,
       "createdAt": "2026-10-23T06:42:13.507Z"
+    },
+    {
+      "id": "cmp_test_winback",
+      "title": "Win-Back Exclusive 20% Off",
+      "type": "whatsapp",
+      "targetSegment": "at_risk",
+      "templateMessage": "Hey {{name}}, we miss you at {{restaurantName}}! Use code {{offerCode}} for {{discount}}% off your next visit.",
+      "offerCode": "MISSYOU20",
+      "discountPercent": 20,
+      "status": "draft",
+      "recipientCount": 0,
+      "deliveredCount": 0,
+      "failedCount": 0,
+      "createdAt": "2026-10-23T12:28:20.450Z"
     }
   ],
   "customerFeedbacks": [
@@ -24195,6 +25380,36 @@
       "createdAt": "2026-10-23T06:42:13.663Z",
       "managerNotes": "Called guest directly, offered complimentary dessert voucher on next visit.",
       "resolvedAt": "2026-10-23T06:42:13.690Z"
+    },
+    {
+      "id": "fb_0793755f",
+      "customerPhone": "9811001122",
+      "customerName": "Priya Sharma",
+      "rating": 5,
+      "feedbackText": "Loved the butter chicken and amazing ambiance! Will visit again.",
+      "tags": [
+        "food",
+        "service"
+      ],
+      "npsCategory": "promoter",
+      "managerStatus": "reviewed",
+      "createdAt": "2026-10-23T12:28:20.575Z"
+    },
+    {
+      "id": "fb_38636893",
+      "customerPhone": "9899887766",
+      "customerName": "Rahul Verma",
+      "rating": 1,
+      "feedbackText": "Order arrived cold and the server was inattentive.",
+      "tags": [
+        "food_cold",
+        "service_delay"
+      ],
+      "npsCategory": "detractor",
+      "managerStatus": "resolved",
+      "createdAt": "2026-10-23T12:28:20.585Z",
+      "managerNotes": "Called guest directly, offered complimentary dessert voucher on next visit.",
+      "resolvedAt": "2026-10-23T12:28:20.612Z"
     }
   ],
   "marketingAutomations": {

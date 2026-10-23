@@ -54,7 +54,9 @@ import { StaffSwitchModal } from './components/modals/StaffSwitchModal';
 import { CustomerOrderView } from './components/CustomerOrderView';
 import { KitchenDisplayView } from './components/KitchenDisplayView';
 import { TokenDisplayView } from './views/TokenDisplayView';
-import { AlertCircle, WifiOff, RotateCw } from 'lucide-react';
+import { StoreStatusModal } from './components/modals/StoreStatusModal';
+import { LiveOrdersPipelineView } from './views/LiveOrdersPipelineView';
+import { AlertCircle, WifiOff, RotateCw, Receipt, ShoppingBag, X } from 'lucide-react';
 import { OfflineQueueService } from './services/offlineQueue.service';
 
 export const App: React.FC = () => {
@@ -75,6 +77,10 @@ export const App: React.FC = () => {
   // Role / View Mode: 'admin' (SaaS Shell) vs 'customer' (Locked Table QR Order View) vs 'kds' (Kitchen Display) vs 'tokens' (Wall TV Screen)
   const [viewMode, setViewMode] = useState<'admin' | 'customer' | 'kds' | 'tokens'>('admin');
   const [activeNavView, setActiveNavView] = useState<ActiveNavView>('overview');
+  const [posTab, setPosTab] = useState<'punch' | 'pipeline'>('punch');
+  const [isStoreStatusModalOpen, setIsStoreStatusModalOpen] = useState<boolean>(false);
+  const [incomingToastOrder, setIncomingToastOrder] = useState<Order | null>(null);
+  const prevOrderIdsRef = React.useRef<Set<string>>(new Set());
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
   const [customerLockedTable, setCustomerLockedTable] = useState<RestaurantTable | null>(null);
   const [invalidQrToken, setInvalidQrToken] = useState<string | null>(null);
@@ -194,6 +200,26 @@ export const App: React.FC = () => {
       const orderData = await ApiService.getOrders();
       if (orderData && orderData.length > 0) {
         setOrders(orderData);
+        // Detect newly arrived inbound orders
+        const newOrders = orderData.filter(o => (o.status === 'pending' || o.status === 'kot_printed') && !prevOrderIdsRef.current.has(o.id));
+        if (newOrders.length > 0 && prevOrderIdsRef.current.size > 0) {
+          setIncomingToastOrder(newOrders[0]);
+          try {
+            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+            osc.frequency.setValueAtTime(880, ctx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.12, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.5);
+          } catch {}
+        }
+        prevOrderIdsRef.current = new Set(orderData.map(o => o.id));
       }
     } catch {
       // Keep existing orders if offline
@@ -617,6 +643,54 @@ export const App: React.FC = () => {
     }
   };
 
+  const handlePrintOrderKot = async (order: Order) => {
+    try {
+      await ApiService.updateOrderStatus(order.id, 'kot_printed');
+      await refreshOrders();
+      window.print();
+    } catch {
+      window.print();
+    }
+  };
+
+  const handlePrintOrderBill = (order: Order) => {
+    const subtotal = order.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+    const taxable = subtotal;
+    const cgst = Number((taxable * 0.025).toFixed(2));
+    const sgst = Number((taxable * 0.025).toFixed(2));
+    const total = Math.round(taxable + cgst + sgst);
+    const bill: Bill = {
+      id: `bill_${order.id}`,
+      invoiceNumber: `INV-${order.orderNumber || order.id.slice(-4)}`,
+      orderId: order.id,
+      orderNumber: order.orderNumber || '0000',
+      orderType: order.type,
+      tableNumber: order.tableNumber,
+      items: order.items.map(i => ({
+        cartItemId: i.id,
+        menuItemId: i.menuItemId,
+        name: i.name,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        selectedVariation: i.selectedVariation,
+        selectedAddons: i.selectedAddons,
+        station: i.station
+      })),
+      subtotal,
+      discountAmount: 0,
+      cgstAmount: cgst,
+      sgstAmount: sgst,
+      roundOff: 0,
+      total,
+      paymentMode: 'cash',
+      status: 'paid',
+      createdAt: order.createdAt,
+      whatsappInvoiceSent: false,
+      whatsappReviewSent: false
+    };
+    setActiveBillForReceipt(bill);
+  };
+
   // =========================================================================
   // CUSTOMER LOCKED VIEW (TABLE QR ORDERING)
   // =========================================================================
@@ -769,12 +843,32 @@ export const App: React.FC = () => {
           profile={profile}
           activeView={activeNavView}
           onOpenMobileMenu={() => setIsMobileSidebarOpen(true)}
-          onQuickPos={() => setActiveNavView('pos')}
+          onQuickPos={() => {
+            setPosTab('punch');
+            setActiveNavView('pos');
+          }}
           onOpenSettings={() => setActiveNavView('settings')}
+          onOpenStoreStatusModal={() => setIsStoreStatusModalOpen(true)}
           isAcceptingOrders={profile.isAcceptingOrders !== undefined ? profile.isAcceptingOrders : true}
           currentStaff={currentStaff || undefined}
           onSwitchStaff={() => setIsStaffModalOpen(true)}
         />
+
+        {/* Global Store Paused Alert Banner */}
+        {profile.isAcceptingOrders === false && (
+          <div className="bg-gradient-to-r from-amber-600 via-rose-600 to-amber-700 text-white px-6 py-2.5 flex items-center justify-between text-xs font-bold shadow-md animate-fadeIn">
+            <div className="flex items-center gap-2.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping shrink-0" />
+              <span>⚠️ STORE IS CURRENTLY PAUSED — Not accepting new online & QR table orders.</span>
+            </div>
+            <button
+              onClick={() => setIsStoreStatusModalOpen(true)}
+              className="px-3.5 py-1 bg-white text-stone-900 rounded-full font-bold hover:bg-stone-100 transition-colors shadow-xs active:scale-95 cursor-pointer"
+            >
+              Resume Orders Now
+            </button>
+          </div>
+        )}
 
         {/* Dynamic View Router */}
         <main className="flex-1 overflow-y-auto">
@@ -802,30 +896,84 @@ export const App: React.FC = () => {
             />
           )}
 
-          {/* C. Staff POS & Billing Terminal */}
+          {/* C. Staff POS & Billing Terminal with Dual Mode */}
           {activeNavView === 'pos' && (
-            <div className="flex h-full overflow-hidden">
-              <MenuGrid
-                categories={categories}
-                items={menuItems}
-                currencySymbol={profile.currencySymbol}
-                onSelectItem={handleSelectItem}
-              />
-              <Cart
-                items={cart}
-                orderType={orderType}
-                tableNumber={orderType === 'dine_in' ? selectedTable?.tableNumber : undefined}
-                currencySymbol={profile.currencySymbol}
-                discount={discount}
-                setDiscount={setDiscount}
-                discountReason={discountReason}
-                setDiscountReason={setDiscountReason}
-                onUpdateQuantity={handleUpdateQuantity}
-                onRemoveItem={handleRemoveItem}
-                onClearCart={handleClearCart}
-                onPrintKOT={handlePrintKOT}
-                onOpenCheckout={() => setIsPaymentModalOpen(true)}
-              />
+            <div className="flex flex-col h-full overflow-hidden">
+              {/* POS Dual Tab Bar */}
+              <div className="bg-white border-b border-canvas-border px-6 py-2.5 flex items-center justify-between shrink-0 shadow-xs">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPosTab('punch')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      posTab === 'punch'
+                        ? 'bg-stone-900 text-white shadow-xs'
+                        : 'text-stone-600 hover:text-stone-900 hover:bg-canvas-100'
+                    }`}
+                  >
+                    <ShoppingBag className="w-4 h-4" />
+                    <span>Punch Bill (New Order)</span>
+                  </button>
+
+                  <button
+                    onClick={() => setPosTab('pipeline')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      posTab === 'pipeline'
+                        ? 'bg-stone-900 text-white shadow-xs'
+                        : 'text-stone-600 hover:text-stone-900 hover:bg-canvas-100'
+                    }`}
+                  >
+                    <Receipt className="w-4 h-4" />
+                    <span>Live Orders Pipeline</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                      posTab === 'pipeline' ? 'bg-stone-800 text-stone-200' : 'bg-emerald-100 text-emerald-800'
+                    }`}>
+                      {orders.filter(o => o.status !== 'settled' && o.status !== 'cancelled').length}
+                    </span>
+                  </button>
+                </div>
+
+                <div className="text-xs text-stone-400 font-medium hidden sm:block">
+                  {posTab === 'punch' ? '⚡ High-Speed Touch Register' : '📋 Live Kitchen & Fulfillment Pipeline'}
+                </div>
+              </div>
+
+              {posTab === 'punch' ? (
+                <div className="flex flex-1 overflow-hidden">
+                  <MenuGrid
+                    categories={categories}
+                    items={menuItems}
+                    currencySymbol={profile.currencySymbol}
+                    onSelectItem={handleSelectItem}
+                  />
+                  <Cart
+                    items={cart}
+                    orderType={orderType}
+                    tableNumber={orderType === 'dine_in' ? selectedTable?.tableNumber : undefined}
+                    currencySymbol={profile.currencySymbol}
+                    discount={discount}
+                    setDiscount={setDiscount}
+                    discountReason={discountReason}
+                    setDiscountReason={setDiscountReason}
+                    onUpdateQuantity={handleUpdateQuantity}
+                    onRemoveItem={handleRemoveItem}
+                    onClearCart={handleClearCart}
+                    onPrintKOT={handlePrintKOT}
+                    onOpenCheckout={() => setIsPaymentModalOpen(true)}
+                  />
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto">
+                  <LiveOrdersPipelineView
+                    orders={orders}
+                    profile={profile}
+                    onUpdateOrderStatus={handleUpdateOrderStatus}
+                    onPrintKOT={handlePrintOrderKot}
+                    onPrintBill={handlePrintOrderBill}
+                    onSettleOrder={order => handleUpdateOrderStatus(order.id, 'settled')}
+                    onNewOrderPunch={() => setPosTab('punch')}
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -1013,6 +1161,74 @@ export const App: React.FC = () => {
           setIsStaffModalOpen(false);
         }}
       />
+
+      {/* Store Open / Paused Status Modal */}
+      <StoreStatusModal
+        isOpen={isStoreStatusModalOpen}
+        onClose={() => setIsStoreStatusModalOpen(false)}
+        profile={profile}
+        onUpdateProfile={handleUpdateProfile}
+      />
+
+      {/* Floating Inbound Order Alert Toast */}
+      {incomingToastOrder && (
+        <div className="fixed bottom-6 right-6 z-40 max-w-sm bg-white rounded-2xl border-2 border-emerald-500 shadow-2xl p-4 space-y-2.5 animate-slideUp">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-emerald-500 animate-ping" />
+              <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-800">
+                🔔 Inbound Order Placed!
+              </span>
+            </div>
+            <button
+              onClick={() => setIncomingToastOrder(null)}
+              className="text-stone-400 hover:text-stone-700"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="text-xs space-y-1">
+            <div className="font-bold text-stone-900 flex items-center justify-between">
+              <span>{incomingToastOrder.orderNumber || incomingToastOrder.id.slice(0, 8)}</span>
+              <span className="font-mono text-emerald-700">
+                {profile.currencySymbol || '₹'}
+                {incomingToastOrder.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0)}
+              </span>
+            </div>
+            <p className="text-stone-600">
+              {incomingToastOrder.type === 'dine_in'
+                ? `Dine-In Table ${incomingToastOrder.tableNumber || 'Self-Order'}`
+                : incomingToastOrder.type === 'takeaway'
+                  ? `Takeaway (Token #${incomingToastOrder.takeawayToken || ''})`
+                  : `Delivery (${incomingToastOrder.deliveryPartner || 'Direct'})`}
+              {' • '}{incomingToastOrder.items.length} items
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              onClick={async () => {
+                await handleUpdateOrderStatus(incomingToastOrder.id, 'preparing');
+                setIncomingToastOrder(null);
+              }}
+              className="flex-1 py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors text-center cursor-pointer shadow-xs"
+            >
+              Accept Order
+            </button>
+            <button
+              onClick={() => {
+                setActiveNavView('pos');
+                setPosTab('pipeline');
+                setIncomingToastOrder(null);
+              }}
+              className="py-1.5 px-3 rounded-xl border border-canvas-border hover:bg-canvas-100 text-stone-700 text-xs font-bold transition-colors cursor-pointer"
+            >
+              View Pipeline
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

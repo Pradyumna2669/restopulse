@@ -9,6 +9,7 @@ interface TopHeaderProps {
   onOpenMobileMenu: () => void;
   onQuickPos: () => void;
   onOpenSettings: () => void;
+  onOpenStoreStatusModal?: () => void;
   isAcceptingOrders?: boolean;
   currentStaff?: StaffUser;
   onSwitchStaff?: () => void;
@@ -20,6 +21,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   onOpenMobileMenu,
   onQuickPos,
   onOpenSettings,
+  onOpenStoreStatusModal,
   isAcceptingOrders = true,
   currentStaff,
   onSwitchStaff
@@ -146,18 +148,19 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           <span>{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
         </div>
 
-        {/* Store Open Status Pill matching screenshot */}
-        <div
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
+        {/* Store Open Status Clickable Button */}
+        <button
+          onClick={onOpenStoreStatusModal}
+          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer shadow-xs active:scale-95 ${
             isAcceptingOrders
-              ? 'bg-sage-50 text-sage-700 border-sage-200'
-              : 'bg-amber-50 text-amber-700 border-amber-200'
+              ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300 ring-2 ring-emerald-500/10'
+              : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300 ring-2 ring-amber-500/10 animate-pulse'
           }`}
-          title={isAcceptingOrders ? 'Store is open and accepting orders' : 'Ordering is paused'}
+          title="Click to manage store open/paused status & channels"
         >
-          <span className={`w-2 h-2 rounded-full ${isAcceptingOrders ? 'bg-sage-500' : 'bg-amber-500'}`} />
-          <span>{isAcceptingOrders ? 'Open' : 'Paused'}</span>
-        </div>
+          <span className={`w-2 h-2 rounded-full ${isAcceptingOrders ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+          <span className="font-bold">{isAcceptingOrders ? 'Store: Open' : 'Store: Paused'}</span>
+        </button>
 
         {/* Quick POS launch */}
         {activeView !== 'pos' && (

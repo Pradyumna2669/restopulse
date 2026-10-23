@@ -281,6 +281,9 @@ apiRouter.post('/tables/:id/vacate', (req: Request, res: Response) => {
 // ==========================================
 apiRouter.post('/customer-order', async (req: Request, res: Response) => {
   const profile = store.getProfile();
+  if (profile.isAcceptingOrders === false) {
+    return res.status(403).json({ error: 'Store is currently paused and not accepting new orders. Please check with staff.' });
+  }
   if (!profile.featureFlags.enableQrOrdering) {
     return res.status(403).json({ error: 'QR Table Ordering is currently disabled by Admin.' });
   }
