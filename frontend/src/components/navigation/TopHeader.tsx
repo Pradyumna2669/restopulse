@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, User, Clock, ShoppingBag } from 'lucide-react';
+import { Menu, User, Clock, ShoppingBag, FileText } from 'lucide-react';
 import { RestaurantProfile, StaffUser } from '../../types';
 import { ActiveNavView } from './Sidebar';
 
@@ -188,6 +188,17 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
         </button>
 
         {/* Profile Avatar Button */}
+        <a
+          href="/RestroPlus_Staff_How_To_Use_Manual.pdf"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-canvas-100 hover:bg-canvas-200 border border-canvas-border text-xs font-semibold text-stone-700 transition-all shadow-xs"
+          title="Open & Download Staff How-To Manual (PDF)"
+        >
+          <FileText className="w-3.5 h-3.5 text-stone-500" />
+          <span className="hidden lg:inline">Staff Manual</span>
+        </a>
+
         <button
           onClick={onOpenSettings}
           className="w-8 h-8 rounded-full bg-stone-100 hover:bg-stone-200 border border-canvas-border text-stone-700 flex items-center justify-center transition-colors"
