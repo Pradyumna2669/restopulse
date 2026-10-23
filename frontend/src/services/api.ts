@@ -48,6 +48,11 @@ import {
   WeighingScaleProtocol,
   WeighingScaleReading,
   WeighableItemPriceCalculation,
+  MarketingCampaign,
+  CustomerFeedback,
+  AutomatedTriggerConfig,
+  NpsSummaryReport,
+  RfmSegment,
   BarcodeResolvedItem,
   VfdGeneratedCommands,
   HardwarePeripheralsStatus,
@@ -119,12 +124,51 @@ export const ApiService = {
     return res.json();
   },
 
-  async getOpenWAStatus(): Promise<{ online: boolean; apiUrl: string; sessionId: string; error?: string }> {
+  async getOpenWAStatus(): Promise<{ online: boolean; statusCode?: number; apiUrl: string; sessionId: string; error?: string; sessionData?: any }> {
     try {
-      const res = await fetchWithTimeout(`${API_BASE}/openwa/status`, {}, 2000);
+      const res = await fetchWithTimeout(`${API_BASE}/openwa/status`, {}, 4000);
       return res.json();
     } catch (e: any) {
       return { online: false, apiUrl: 'http://localhost:2785', sessionId: 'default', error: e.message };
+    }
+  },
+
+  async testOpenWAConnection(config?: { apiUrl?: string; sessionId?: string; apiKey?: string }): Promise<{
+    online: boolean;
+    statusCode?: number;
+    apiUrl: string;
+    sessionId: string;
+    error?: string;
+    sessionData?: any;
+  }> {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/openwa/test-connection`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config || {})
+      }, 6000);
+      return res.json();
+    } catch (e: any) {
+      return { online: false, apiUrl: config?.apiUrl || '', sessionId: config?.sessionId || '', error: e.message };
+    }
+  },
+
+  async sendOpenWATestMessage(data: {
+    phone: string;
+    text?: string;
+    apiUrl?: string;
+    sessionId?: string;
+    apiKey?: string;
+  }): Promise<{ success: boolean; chatId?: string; messageId?: string; message?: string; error?: string; statusCode?: number }> {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE}/openwa/send-test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      }, 15000);
+      return res.json();
+    } catch (e: any) {
+      return { success: false, error: e.message || 'Network request failed' };
     }
   },
 
@@ -1413,9 +1457,128 @@ export const ApiService = {
         resetTime: new Date(Date.now() + 60000).toISOString()
       };
     }
+  },
+
+  // ==========================================
+  // Phase 11: Reelo Marketing Campaigns, RFM & Feedback Hub
+  // ==========================================
+  async getMarketingSegments(): Promise<{
+    summary: Record<RfmSegment | 'all', number>;
+    segments: Record<RfmSegment, CustomerProfile[]>;
+    customers: CustomerProfile[];
+  }> {
+    const res = await fetchWithTimeout(`${API_BASE}/marketing/segments`);
+    if (!res.ok) throw new Error('Failed to load marketing segments');
+    return res.json();
+  },
+
+  async getMarketingCampaigns(): Promise<MarketingCampaign[]> {
+    const res = await fetchWithTimeout(`${API_BASE}/marketing/campaigns`);
+    if (!res.ok) throw new Error('Failed to load marketing campaigns');
+    return res.json();
+  },
+
+  async createMarketingCampaign(campaign: Partial<MarketingCampaign>): Promise<MarketingCampaign> {
+    const res = await fetchWithTimeout(`${API_BASE}/marketing/campaigns`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(campaign)
+    });
+    if (!res.ok) throw new Error('Failed to create marketing campaign');
+    return res.json();
+  },
+
+  async broadcastCampaign(campaignId: string): Promise<{
+    success: boolean;
+    campaign: MarketingCampaign;
+    recipientCount: number;
+    deliveredCount: number;
+    failedCount: number;
+    error?: string;
+  }> {
+    const res = await fetchWithTimeout(`${API_BASE}/marketing/campaigns/${campaignId}/send`, {
+      method: 'POST'
+    }, 25000);
+    if (!res.ok) throw new Error('Failed to broadcast campaign');
+    return res.json();
+  },
+
+  async deleteMarketingCampaign(campaignId: string): Promise<{ success: boolean }> {
+    const res = await fetchWithTimeout(`${API_BASE}/marketing/campaigns/${campaignId}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) throw new Error('Failed to delete campaign');
+    return res.json();
+  },
+
+  async getFeedbackSummary(): Promise<NpsSummaryReport> {
+    const res = await fetchWithTimeout(`${API_BASE}/marketing/feedback`);
+    if (!res.ok) throw new Error('Failed to load feedback report');
+    return res.json();
+  },
+
+  async submitCustomerFeedback(data: {
+    customerPhone: string;
+    customerName?: string;
+    billId?: string;
+    rating: number;
+    feedbackText?: string;
+    tags?: string[];
+  }): Promise<{
+    feedback: CustomerFeedback;
+    isPromoter: boolean;
+    googleReviewUrl?: string;
+    managerAlertTriggered: boolean;
+  }> {
+    const res = await fetchWithTimeout(`${API_BASE}/marketing/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Failed to submit feedback');
+    return res.json();
+  },
+
+  async resolveCustomerFeedback(id: string, notes?: string): Promise<CustomerFeedback> {
+    const res = await fetchWithTimeout(`${API_BASE}/marketing/feedback/${id}/resolve`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes })
+    });
+    if (!res.ok) throw new Error('Failed to resolve feedback');
+    return res.json();
+  },
+
+  async getMarketingAutomations(): Promise<AutomatedTriggerConfig> {
+    const res = await fetchWithTimeout(`${API_BASE}/marketing/automations`);
+    if (!res.ok) throw new Error('Failed to load marketing automations');
+    return res.json();
+  },
+
+  async updateMarketingAutomations(config: Partial<AutomatedTriggerConfig>): Promise<AutomatedTriggerConfig> {
+    const res = await fetchWithTimeout(`${API_BASE}/marketing/automations`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config)
+    });
+    if (!res.ok) throw new Error('Failed to update marketing automations');
+    return res.json();
+  },
+
+  async triggerMarketingAutomationsDaily(): Promise<{
+    birthdaysTriggered: number;
+    winbackTriggered: number;
+    totalDispatched: number;
+  }> {
+    const res = await fetchWithTimeout(`${API_BASE}/marketing/automations/run-daily`, {
+      method: 'POST'
+    }, 20000);
+    if (!res.ok) throw new Error('Failed to trigger daily automations');
+    return res.json();
   }
 };
 
 export const api = ApiService;
+
 
 

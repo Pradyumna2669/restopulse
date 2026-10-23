@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import {
   Save,
   MessageCircle,
+  Send,
+  Eye,
+  EyeOff,
+  Phone,
   SlidersHorizontal,
   Activity,
   ShieldCheck,
@@ -74,6 +78,82 @@ export const RestaurantSettingsView: React.FC<RestaurantSettingsViewProps> = ({
   // OpenWA config
   const [openwaApiUrl, setOpenwaApiUrl] = useState(profile.openwaConfig?.apiUrl || 'http://localhost:2785');
   const [openwaSessionId, setOpenwaSessionId] = useState(profile.openwaConfig?.sessionId || 'default');
+  const [openwaApiKey, setOpenwaApiKey] = useState(profile.openwaConfig?.apiKey || '');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [isCheckingConn, setIsCheckingConn] = useState(false);
+  const [connStatus, setConnStatus] = useState<{ checked: boolean; online: boolean; error?: string; statusCode?: number; sessionData?: any } | null>(null);
+  const [testPhone, setTestPhone] = useState('');
+  const [testMessage, setTestMessage] = useState('🎉 Hello from RestroPlus POS! WhatsApp Gateway connection test successful. ✨');
+  const [isSendingTest, setIsSendingTest] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; messageId?: string; message?: string; error?: string } | null>(null);
+
+  const handleTestConnection = async () => {
+    try {
+      setIsCheckingConn(true);
+      const res = await api.testOpenWAConnection({
+        apiUrl: openwaApiUrl,
+        sessionId: openwaSessionId,
+        apiKey: openwaApiKey
+      });
+      setConnStatus({
+        checked: true,
+        online: res.online,
+        statusCode: res.statusCode,
+        error: res.error,
+        sessionData: res.sessionData
+      });
+    } catch (err: any) {
+      setConnStatus({
+        checked: true,
+        online: false,
+        error: err.message || 'Connection test failed'
+      });
+    } finally {
+      setIsCheckingConn(false);
+    }
+  };
+
+  // Initial gateway connection check
+  useEffect(() => {
+    handleTestConnection();
+  }, []);
+
+  const handleSendTestMessage = async () => {
+    if (!testPhone.trim()) {
+      setTestResult({ success: false, error: 'Please enter a valid mobile number with country code (e.g. 919876543210).' });
+      return;
+    }
+    try {
+      setIsSendingTest(true);
+      setTestResult(null);
+      const res = await api.sendOpenWATestMessage({
+        phone: testPhone.trim(),
+        text: testMessage.trim(),
+        apiUrl: openwaApiUrl,
+        sessionId: openwaSessionId,
+        apiKey: openwaApiKey
+      });
+      if (res.success) {
+        setTestResult({
+          success: true,
+          messageId: res.messageId,
+          message: res.message || `Message delivered successfully! Message ID: ${res.messageId}`
+        });
+      } else {
+        setTestResult({
+          success: false,
+          error: res.error || 'Failed to send test message. Check gateway status & logs.'
+        });
+      }
+    } catch (err: any) {
+      setTestResult({
+        success: false,
+        error: err.message || 'Network request failed.'
+      });
+    } finally {
+      setIsSendingTest(false);
+    }
+  };
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -143,11 +223,13 @@ export const RestaurantSettingsView: React.FC<RestaurantSettingsViewProps> = ({
         openwaConfig: {
           ...profile.openwaConfig,
           apiUrl: openwaApiUrl,
-          sessionId: openwaSessionId
+          sessionId: openwaSessionId,
+          apiKey: openwaApiKey
         }
       });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
+      handleTestConnection();
     } catch (err) {
       console.error('Failed to update settings:', err);
       alert('Failed to save settings.');
@@ -499,23 +581,86 @@ export const RestaurantSettingsView: React.FC<RestaurantSettingsViewProps> = ({
             </div>
           </Card>
 
-          {/* 4. OpenWA Gateway Configuration */}
+          {/* 4. OpenWA Gateway Configuration & Live Testing */}
           <Card className="space-y-4">
-            <div className="flex items-center justify-between border-b border-canvas-border pb-2.5">
-              <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
-                <MessageCircle className="w-4 h-4 text-emerald-600" />
-                <span>OpenWA WhatsApp Self-Hosted Gateway</span>
-              </h3>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-canvas-border pb-3 gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700">
+                  <MessageCircle className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
+                    OpenWA / WAHA WhatsApp Gateway
+                  </h3>
+                  <p className="text-xs text-stone-500">
+                    Self-hosted WhatsApp API for automated GST invoices, reviews & customer notifications.
+                  </p>
+                </div>
+              </div>
 
-              <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
-                openwaOnline ? 'bg-sage-50 text-sage-700 border-sage-200' : 'bg-amber-50 text-amber-700 border-amber-200'
-              }`}>
-                <span className={`w-2 h-2 rounded-full ${openwaOnline ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                <span>{openwaOnline ? 'Gateway Connected' : 'Offline (Port 2785)'}</span>
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleTestConnection}
+                  isLoading={isCheckingConn}
+                  leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+                  className="text-xs"
+                >
+                  Test Connection
+                </Button>
+
+                <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
+                  (connStatus ? connStatus.online : openwaOnline)
+                    ? 'bg-sage-50 text-sage-700 border-sage-200' 
+                    : connStatus?.statusCode === 401
+                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                      : 'bg-rose-50 text-rose-700 border-rose-200'
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${
+                    (connStatus ? connStatus.online : openwaOnline)
+                      ? 'bg-emerald-500' 
+                      : connStatus?.statusCode === 401 
+                        ? 'bg-amber-500' 
+                        : 'bg-rose-500'
+                  }`} />
+                  <span>
+                    {(connStatus ? connStatus.online : openwaOnline)
+                      ? 'Gateway Connected' 
+                      : connStatus?.statusCode === 401
+                        ? '401 Unauthorized (API Key Required)'
+                        : 'Gateway Offline'}
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            {/* Error / Warning Alert banner if not online */}
+            {!(connStatus ? connStatus.online : openwaOnline) && (
+              <div className={`p-3 rounded-xl border text-xs flex items-start gap-2.5 ${
+                connStatus?.statusCode === 401 
+                  ? 'bg-amber-50/90 border-amber-200 text-amber-900'
+                  : 'bg-stone-50 border-stone-200 text-stone-700'
+              }`}>
+                <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${
+                  connStatus?.statusCode === 401 ? 'text-amber-600' : 'text-stone-500'
+                }`} />
+                <div className="space-y-0.5">
+                  <p className="font-bold">
+                    {connStatus?.statusCode === 401 
+                      ? 'WhatsApp Gateway Authentication Required (HTTP 401)' 
+                      : 'Gateway Connection Status'}
+                  </p>
+                  <p className="text-[11px] leading-relaxed">
+                    {connStatus?.error || (openwaOnline ? 'Connected' : `Cannot connect to ${openwaApiUrl}. Please verify URL, port, and enter your API Key below.`)}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Config Fields */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div>
                 <label className="font-bold text-stone-700 block mb-1">OpenWA Server URL</label>
                 <input
@@ -525,6 +670,7 @@ export const RestaurantSettingsView: React.FC<RestaurantSettingsViewProps> = ({
                   placeholder="http://localhost:2785"
                   className="w-full px-3 py-2 rounded-xl bg-canvas-100 border border-canvas-border text-stone-900 focus:outline-none focus:border-stone-400 font-mono"
                 />
+                <span className="text-[10px] text-stone-500 mt-1 block">e.g. http://192.168.1.9:2785</span>
               </div>
 
               <div>
@@ -536,7 +682,111 @@ export const RestaurantSettingsView: React.FC<RestaurantSettingsViewProps> = ({
                   placeholder="default"
                   className="w-full px-3 py-2 rounded-xl bg-canvas-100 border border-canvas-border text-stone-900 focus:outline-none focus:border-stone-400 font-mono"
                 />
+                <span className="text-[10px] text-stone-500 mt-1 block">e.g. my-bot or default</span>
               </div>
+
+              <div>
+                <label className="font-bold text-stone-700 block mb-1">OpenWA API Key / Secret</label>
+                <div className="relative">
+                  <input
+                    type={showApiKey ? 'text' : 'password'}
+                    value={openwaApiKey}
+                    onChange={e => setOpenwaApiKey(e.target.value)}
+                    placeholder="Enter API Key / Token"
+                    className="w-full pl-3 pr-9 py-2 rounded-xl bg-canvas-100 border border-canvas-border text-stone-900 focus:outline-none focus:border-stone-400 font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 focus:outline-none"
+                    title={showApiKey ? 'Hide API Key' : 'Show API Key'}
+                  >
+                    {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                <span className="text-[10px] text-stone-500 mt-1 block">Passes X-Api-Key & Bearer headers</span>
+              </div>
+            </div>
+
+            {/* Test Message Box */}
+            <div className="mt-4 pt-3 border-t border-canvas-border bg-stone-50/50 -mx-4 -mb-4 p-4 rounded-b-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-stone-800">
+                  <Send className="w-3.5 h-3.5 text-terracotta-600" />
+                  <span>Send Test WhatsApp Message</span>
+                </div>
+                <span className="text-[11px] text-stone-500">Live Delivery Verification</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div>
+                  <label className="text-[11px] font-semibold text-stone-700 block mb-1">Recipient Mobile Number</label>
+                  <div className="relative">
+                    <Phone className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={testPhone}
+                      onChange={e => setTestPhone(e.target.value)}
+                      placeholder="e.g. 919876543210"
+                      className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-white border border-canvas-border text-xs text-stone-900 font-mono focus:outline-none focus:border-stone-400"
+                    />
+                  </div>
+                  <span className="text-[10px] text-stone-500 mt-0.5 block">Include 91 country code</span>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="text-[11px] font-semibold text-stone-700 block mb-1">Message Text</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={testMessage}
+                      onChange={e => setTestMessage(e.target.value)}
+                      placeholder="Test message..."
+                      className="flex-1 px-3 py-1.5 rounded-lg bg-white border border-canvas-border text-xs text-stone-900 focus:outline-none focus:border-stone-400"
+                    />
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      onClick={handleSendTestMessage}
+                      isLoading={isSendingTest}
+                      leftIcon={<Send className="w-3 h-3" />}
+                      className="shrink-0 text-xs"
+                    >
+                      Send Test
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Test Message Result Alert */}
+              {testResult && (
+                <div className={`p-2.5 rounded-lg border text-xs flex items-center justify-between ${
+                  testResult.success 
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                    : 'bg-rose-50 border-rose-200 text-rose-800'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    {testResult.success ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    )}
+                    <span>
+                      {testResult.success 
+                        ? (testResult.message || `Message sent successfully! (ID: ${testResult.messageId})`)
+                        : (testResult.error || 'Failed to dispatch message.')}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTestResult(null)}
+                    className="text-xs opacity-60 hover:opacity-100 ml-2 font-bold"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
             </div>
           </Card>
 

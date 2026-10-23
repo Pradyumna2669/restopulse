@@ -1,9 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { CustomerProfile, DeliveryPartnerConfig, DeliveryPartner, ReconciliationReport, WebhookDeliveryLog } from '../types';
-import { ApiService } from '../services/api';
+import {
+  CustomerProfile,
+  DeliveryPartnerConfig,
+  DeliveryPartner,
+  ReconciliationReport,
+  WebhookDeliveryLog,
+  MarketingCampaign,
+  CustomerFeedback,
+  AutomatedTriggerConfig,
+  NpsSummaryReport,
+  RfmSegment
+} from '../types';
+import { ApiService, api } from '../services/api';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { ToggleSwitch } from '../components/ui/ToggleSwitch';
 import {
   Search,
   UserPlus,
@@ -29,7 +41,13 @@ import {
   TrendingUp,
   RefreshCw,
   AlertTriangle,
-  Scale
+  Scale,
+  Megaphone,
+  Star,
+  Gift,
+  Send,
+  Trash2,
+  Clock
 } from 'lucide-react';
 
 interface CustomerCrmViewProps {
@@ -43,7 +61,37 @@ export const CustomerCrmView: React.FC<CustomerCrmViewProps> = ({
   onSelectCustomer,
   onOrderSimulated
 }) => {
-  const [activeTab, setActiveTab] = useState<'directory' | 'partners' | 'reconciliation'>('directory');
+  const [activeTab, setActiveTab] = useState<'directory' | 'campaigns' | 'feedback' | 'automations' | 'partners' | 'reconciliation'>('directory');
+  
+  // Phase 11: Reelo Marketing Campaigns, RFM & Feedback States
+  const [rfmSummary, setRfmSummary] = useState<Record<RfmSegment | 'all', number>>({ all: 0, champions: 0, loyal: 0, at_risk: 0, dormant: 0, new: 0 });
+  const [rfmSegmentFilter, setRfmSegmentFilter] = useState<'all' | RfmSegment>('all');
+  const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
+  const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
+  const [isBroadcasting, setIsBroadcasting] = useState<string | null>(null);
+  const [broadcastResult, setBroadcastResult] = useState<string | null>(null);
+  
+  // Campaign Form State
+  const [campaignTitle, setCampaignTitle] = useState('');
+  const [campaignSegment, setCampaignSegment] = useState<'all' | RfmSegment>('all');
+  const [campaignDiscount, setCampaignDiscount] = useState<number>(20);
+  const [campaignOfferCode, setCampaignOfferCode] = useState('SPECIAL20');
+  const [campaignTemplate, setCampaignTemplate] = useState('🍽️ *SPECIAL OFFER AT {{restaurantName}}!*\n\nHey {{name}},\nEnjoy *{{discount}}% OFF* your next meal with code *{{offerCode}}*. You also have *{{points}} loyalty points* available! ✨\n\nSee you soon!');
+  
+  // Feedback & NPS States
+  const [npsReport, setNpsReport] = useState<NpsSummaryReport | null>(null);
+  const [isRecordingFeedback, setIsRecordingFeedback] = useState(false);
+  const [fbPhone, setFbPhone] = useState('');
+  const [fbName, setFbName] = useState('');
+  const [fbRating, setFbRating] = useState<number>(5);
+  const [fbText, setFbText] = useState('');
+  const [fbTags, setFbTags] = useState('food, service');
+  const [feedbackSuccessMsg, setFeedbackSuccessMsg] = useState<string | null>(null);
+
+  // Marketing Automations State
+  const [automations, setAutomations] = useState<AutomatedTriggerConfig | null>(null);
+  const [isRunningDailyAutomations, setIsRunningDailyAutomations] = useState(false);
+  const [automationRunResult, setAutomationRunResult] = useState<string | null>(null);
   const [customers, setCustomers] = useState<CustomerProfile[]>([]);
   const [deliveryPartners, setDeliveryPartners] = useState<DeliveryPartnerConfig[]>([]);
   const [reconciliationReport, setReconciliationReport] = useState<ReconciliationReport | null>(null);
@@ -70,13 +118,166 @@ export const CustomerCrmView: React.FC<CustomerCrmViewProps> = ({
   useEffect(() => {
     loadCustomers();
     loadDeliveryPartners();
+    loadMarketingData();
   }, []);
 
   useEffect(() => {
     if (activeTab === 'reconciliation') {
       loadReconciliation();
+    } else if (activeTab === 'campaigns') {
+      loadCampaigns();
+    } else if (activeTab === 'feedback') {
+      loadFeedback();
+    } else if (activeTab === 'automations') {
+      loadAutomations();
     }
   }, [activeTab]);
+
+  const loadMarketingData = async () => {
+    try {
+      const segData = await api.getMarketingSegments();
+      setRfmSummary(segData.summary);
+    } catch (e) {
+      console.error('Failed to load RFM segments:', e);
+    }
+  };
+
+  const loadCampaigns = async () => {
+    try {
+      const data = await api.getMarketingCampaigns();
+      setCampaigns(data);
+      loadMarketingData();
+    } catch (e) {
+      console.error('Failed to load campaigns:', e);
+    }
+  };
+
+  const loadFeedback = async () => {
+    try {
+      const report = await api.getFeedbackSummary();
+      setNpsReport(report);
+    } catch (e) {
+      console.error('Failed to load feedback report:', e);
+    }
+  };
+
+  const loadAutomations = async () => {
+    try {
+      const config = await api.getMarketingAutomations();
+      setAutomations(config);
+    } catch (e) {
+      console.error('Failed to load marketing automations:', e);
+    }
+  };
+
+  const handleCreateCampaign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.createMarketingCampaign({
+        title: campaignTitle,
+        type: 'whatsapp',
+        targetSegment: campaignSegment,
+        discountPercent: campaignDiscount,
+        offerCode: campaignOfferCode,
+        templateMessage: campaignTemplate
+      });
+      setIsCreatingCampaign(false);
+      setCampaignTitle('');
+      loadCampaigns();
+      setBroadcastResult('Campaign created successfully!');
+      setTimeout(() => setBroadcastResult(null), 4000);
+    } catch (err: any) {
+      alert(err.message || 'Failed to create campaign');
+    }
+  };
+
+  const handleBroadcastCampaign = async (campaignId: string) => {
+    try {
+      setIsBroadcasting(campaignId);
+      const res = await api.broadcastCampaign(campaignId);
+      setBroadcastResult(`Broadcast Complete! Delivered: ${res.deliveredCount}, Failed: ${res.failedCount} (${res.recipientCount} Total)`);
+      loadCampaigns();
+      setTimeout(() => setBroadcastResult(null), 6000);
+    } catch (err: any) {
+      alert(err.message || 'Broadcast failed');
+    } finally {
+      setIsBroadcasting(null);
+    }
+  };
+
+  const handleDeleteCampaign = async (campaignId: string) => {
+    if (!confirm('Are you sure you want to delete this campaign?')) return;
+    try {
+      await api.deleteMarketingCampaign(campaignId);
+      loadCampaigns();
+    } catch (err: any) {
+      alert('Failed to delete campaign');
+    }
+  };
+
+  const handleSubmitFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fbPhone) return alert('Phone number required');
+    try {
+      const tagsArray = fbTags.split(',').map(t => t.trim()).filter(Boolean);
+      const res = await api.submitCustomerFeedback({
+        customerPhone: fbPhone,
+        customerName: fbName || 'Guest',
+        rating: fbRating,
+        feedbackText: fbText,
+        tags: tagsArray
+      });
+      setIsRecordingFeedback(false);
+      setFbPhone('');
+      setFbName('');
+      setFbText('');
+      loadFeedback();
+      if (res.isPromoter && res.googleReviewUrl) {
+        setFeedbackSuccessMsg(`5-Star Feedback Logged! Customer will be nudged to Google Reviews: ${res.googleReviewUrl}`);
+      } else if (res.managerAlertTriggered) {
+        setFeedbackSuccessMsg('Low rating logged. Alert placed in manager audit trail for service recovery.');
+      } else {
+        setFeedbackSuccessMsg('Customer feedback recorded successfully!');
+      }
+      setTimeout(() => setFeedbackSuccessMsg(null), 5000);
+    } catch (err: any) {
+      alert(err.message || 'Failed to submit feedback');
+    }
+  };
+
+  const handleResolveFeedback = async (feedbackId: string) => {
+    const notes = prompt('Enter manager resolution notes (e.g. Spoke with guest, offered voucher):');
+    if (!notes) return;
+    try {
+      await api.resolveCustomerFeedback(feedbackId, notes);
+      loadFeedback();
+    } catch (err: any) {
+      alert('Failed to resolve feedback');
+    }
+  };
+
+  const handleSaveAutomations = async () => {
+    if (!automations) return;
+    try {
+      await api.updateMarketingAutomations(automations);
+      alert('Automated Marketing Journeys updated successfully!');
+    } catch (err: any) {
+      alert('Failed to update automations');
+    }
+  };
+
+  const handleTriggerDailyAutomations = async () => {
+    try {
+      setIsRunningDailyAutomations(true);
+      const res = await api.triggerMarketingAutomationsDaily();
+      setAutomationRunResult(`Daily Journey Run Complete! Sent ${res.birthdaysTriggered} birthday perks and ${res.winbackTriggered} win-back vouchers.`);
+      setTimeout(() => setAutomationRunResult(null), 6000);
+    } catch (err: any) {
+      alert('Failed to run daily automations');
+    } finally {
+      setIsRunningDailyAutomations(false);
+    }
+  };
 
   const loadReconciliation = async () => {
     setIsLoadingRecon(true);
@@ -224,7 +425,8 @@ export const CustomerCrmView: React.FC<CustomerCrmViewProps> = ({
       selectedChannelFilter === 'all' ||
       (selectedChannelFilter === 'direct' && (!c.channel || c.channel === 'direct')) ||
       c.channel === selectedChannelFilter;
-    return matchesSearch && matchesTier && matchesChannel;
+    const matchesRfm = rfmSegmentFilter === 'all' || c.rfmSegment === rfmSegmentFilter;
+    return matchesSearch && matchesTier && matchesChannel && matchesRfm;
   });
 
   const getTierBadge = (tier: string) => {
@@ -258,6 +460,22 @@ export const CustomerCrmView: React.FC<CustomerCrmViewProps> = ({
     }
   };
 
+
+  const getRfmBadge = (segment?: RfmSegment) => {
+    switch (segment) {
+      case 'champions':
+        return <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center gap-1">🌟 Champion</span>;
+      case 'loyal':
+        return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200 inline-flex items-center gap-1">🔁 Loyal</span>;
+      case 'at_risk':
+        return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 inline-flex items-center gap-1">⚠️ At-Risk</span>;
+      case 'dormant':
+        return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200 inline-flex items-center gap-1">💤 Dormant</span>;
+      default:
+        return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200 inline-flex items-center gap-1">🆕 New Guest</span>;
+    }
+  };
+
   const getChannelBadge = (channel?: DeliveryPartner) => {
     switch (channel) {
       case 'zomato':
@@ -277,6 +495,45 @@ export const CustomerCrmView: React.FC<CustomerCrmViewProps> = ({
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+      {/* Campaign Broadcast Alert */}
+      {broadcastResult && (
+        <div className="bg-emerald-50 border border-emerald-300 px-4 py-3 rounded-2xl flex items-center justify-between text-xs text-emerald-800 shadow-sm animate-fadeIn">
+          <div className="flex items-center space-x-2.5">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <span className="font-bold">{broadcastResult}</span>
+          </div>
+          <button onClick={() => setBroadcastResult(null)} className="text-emerald-600 hover:text-emerald-900 p-1">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Feedback Alert */}
+      {feedbackSuccessMsg && (
+        <div className="bg-blue-50 border border-blue-300 px-4 py-3 rounded-2xl flex items-center justify-between text-xs text-blue-800 shadow-sm animate-fadeIn">
+          <div className="flex items-center space-x-2.5">
+            <Star className="w-4 h-4 text-blue-600" />
+            <span className="font-bold">{feedbackSuccessMsg}</span>
+          </div>
+          <button onClick={() => setFeedbackSuccessMsg(null)} className="text-blue-600 hover:text-blue-900 p-1">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Automation Alert */}
+      {automationRunResult && (
+        <div className="bg-purple-50 border border-purple-300 px-4 py-3 rounded-2xl flex items-center justify-between text-xs text-purple-800 shadow-sm animate-fadeIn">
+          <div className="flex items-center space-x-2.5">
+            <Sparkles className="w-4 h-4 text-purple-600" />
+            <span className="font-bold">{automationRunResult}</span>
+          </div>
+          <button onClick={() => setAutomationRunResult(null)} className="text-purple-600 hover:text-purple-900 p-1">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Simulation Banner Notification */}
       {simulationAlert && (
         <div className="bg-sage-50 border border-sage-300 px-4 py-3 rounded-2xl flex items-center justify-between text-xs text-sage-800 shadow-sm animate-fadeIn">
@@ -316,6 +573,63 @@ export const CustomerCrmView: React.FC<CustomerCrmViewProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('campaigns')}
+            className={`px-4 py-2 rounded-xl font-bold transition-all flex items-center space-x-2 shrink-0 ${
+              activeTab === 'campaigns'
+                ? 'bg-stone-900 text-white shadow-sm'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-canvas-100'
+            }`}
+          >
+            <Megaphone className="w-4 h-4" />
+            <span>WhatsApp Campaigns</span>
+            <span
+              className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
+                activeTab === 'campaigns' ? 'bg-stone-800 text-stone-200' : 'bg-canvas-200 text-stone-600'
+              }`}
+            >
+              {campaigns.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('feedback')}
+            className={`px-4 py-2 rounded-xl font-bold transition-all flex items-center space-x-2 shrink-0 ${
+              activeTab === 'feedback'
+                ? 'bg-stone-900 text-white shadow-sm'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-canvas-100'
+            }`}
+          >
+            <Star className="w-4 h-4" />
+            <span>Feedback & NPS</span>
+            <span
+              className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
+                activeTab === 'feedback' ? 'bg-stone-800 text-stone-200' : 'bg-canvas-200 text-stone-600'
+              }`}
+            >
+              {npsReport?.totalResponses || 0}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('automations')}
+            className={`px-4 py-2 rounded-xl font-bold transition-all flex items-center space-x-2 shrink-0 ${
+              activeTab === 'automations'
+                ? 'bg-stone-900 text-white shadow-sm'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-canvas-100'
+            }`}
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Automations</span>
+            <span
+              className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
+                activeTab === 'automations' ? 'bg-stone-800 text-stone-200' : 'bg-canvas-200 text-stone-600'
+              }`}
+            >
+              Reelo
+            </span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('partners')}
             className={`px-4 py-2 rounded-xl font-bold transition-all flex items-center space-x-2 shrink-0 ${
               activeTab === 'partners'
@@ -324,13 +638,13 @@ export const CustomerCrmView: React.FC<CustomerCrmViewProps> = ({
             }`}
           >
             <Globe className="w-4 h-4" />
-            <span>Delivery Partner Channels</span>
+            <span>Delivery Partners</span>
             <span
               className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
                 activeTab === 'partners' ? 'bg-stone-800 text-stone-200' : 'bg-canvas-200 text-stone-600'
               }`}
             >
-              {activePartnersCount} Active
+              {activePartnersCount}
             </span>
           </button>
 
@@ -504,6 +818,30 @@ export const CustomerCrmView: React.FC<CustomerCrmViewProps> = ({
                       }`}
                     >
                       {tier.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* RFM Lifecycle Segment Filter Pills */}
+                <div className="flex items-center space-x-1.5 overflow-x-auto text-[11px] pt-1">
+                  {[
+                    { key: 'all', label: 'All Segments' },
+                    { key: 'champions', label: '🏆 Champions' },
+                    { key: 'loyal', label: '💎 Loyal' },
+                    { key: 'new', label: '🌱 New' },
+                    { key: 'at_risk', label: '⚠️ At Risk' },
+                    { key: 'dormant', label: '💤 Dormant' }
+                  ].map(seg => (
+                    <button
+                      key={seg.key}
+                      onClick={() => setRfmSegmentFilter(seg.key as any)}
+                      className={`px-2.5 py-1 rounded-lg font-bold whitespace-nowrap transition-colors ${
+                        rfmSegmentFilter === seg.key
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-canvas-100 text-stone-600 hover:text-stone-900'
+                      }`}
+                    >
+                      {seg.label} {rfmSummary[seg.key as keyof typeof rfmSummary] ? `(${rfmSummary[seg.key as keyof typeof rfmSummary]})` : ''}
                     </button>
                   ))}
                 </div>
@@ -1265,6 +1603,586 @@ export const CustomerCrmView: React.FC<CustomerCrmViewProps> = ({
                 </tbody>
               </table>
             </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* TAB: WHATSAPP & SMS MARKETING CAMPAIGNS (REELO SUITE) */}
+      {/* ======================================================== */}
+      {activeTab === 'campaigns' && (
+        <div className="space-y-6">
+          {/* RFM Segmentation Ribbon */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {[
+              { id: 'all', label: 'All Guests', count: rfmSummary.all, color: 'border-stone-200 bg-white text-stone-900' },
+              { id: 'champions', label: '🌟 Champions', count: rfmSummary.champions, color: 'border-emerald-200 bg-emerald-50 text-emerald-900' },
+              { id: 'loyal', label: '🔁 Regulars', count: rfmSummary.loyal, color: 'border-blue-200 bg-blue-50 text-blue-900' },
+              { id: 'at_risk', label: '⚠️ At-Risk', count: rfmSummary.at_risk, color: 'border-amber-200 bg-amber-50 text-amber-900' },
+              { id: 'dormant', label: '💤 Dormant', count: rfmSummary.dormant, color: 'border-rose-200 bg-rose-50 text-rose-900' },
+              { id: 'new', label: '🆕 New Visits', count: rfmSummary.new, color: 'border-purple-200 bg-purple-50 text-purple-900' }
+            ].map(seg => (
+              <div
+                key={seg.id}
+                onClick={() => {
+                  setCampaignSegment(seg.id as any);
+                  setIsCreatingCampaign(true);
+                }}
+                className={`p-3.5 rounded-2xl border cursor-pointer hover:shadow-md transition-all ${seg.color}`}
+              >
+                <div className="text-[11px] font-bold opacity-80">{seg.label}</div>
+                <div className="text-xl font-extrabold mt-1">{seg.count}</div>
+                <div className="text-[10px] opacity-70 mt-0.5">Click to target</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Campaigns Table Card */}
+          <Card className="space-y-4">
+            <div className="flex items-center justify-between border-b border-canvas-border pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
+                  <Megaphone className="w-4 h-4 text-emerald-600" />
+                  <span>WhatsApp Broadcast Campaigns</span>
+                </h3>
+                <p className="text-xs text-stone-500">
+                  Send personalized promo vouchers, win-back messages & menu highlights directly to guest phones.
+                </p>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setIsCreatingCampaign(true)}
+                className="text-xs"
+              >
+                + New Campaign
+              </Button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-canvas-border text-stone-500 font-semibold bg-canvas-50">
+                    <th className="py-2.5 px-3">Campaign Title</th>
+                    <th className="py-2.5 px-3">Target Segment</th>
+                    <th className="py-2.5 px-3">Promo Offer</th>
+                    <th className="py-2.5 px-3">Recipients</th>
+                    <th className="py-2.5 px-3">Delivered</th>
+                    <th className="py-2.5 px-3">Status</th>
+                    <th className="py-2.5 px-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-canvas-border">
+                  {campaigns.length > 0 ? (
+                    campaigns.map(cmp => (
+                      <tr key={cmp.id} className="hover:bg-canvas-50/50 transition-colors">
+                        <td className="py-3 px-3">
+                          <div className="font-bold text-stone-900">{cmp.title}</div>
+                          <div className="text-[10px] text-stone-500 font-mono mt-0.5">
+                            Created: {new Date(cmp.createdAt).toLocaleDateString()}
+                          </div>
+                        </td>
+                        <td className="py-3 px-3">
+                          {getRfmBadge(cmp.targetSegment === 'all' ? undefined : cmp.targetSegment as any)}
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className="font-mono bg-canvas-100 border border-canvas-border px-2 py-0.5 rounded text-[11px] font-bold text-terracotta-700">
+                            {cmp.offerCode} ({cmp.discountPercent}% OFF)
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 font-mono font-semibold">{cmp.recipientCount || '—'}</td>
+                        <td className="py-3 px-3 font-mono text-emerald-700 font-semibold">{cmp.deliveredCount || 0}</td>
+                        <td className="py-3 px-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                            cmp.status === 'completed'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : cmp.status === 'sending'
+                                ? 'bg-blue-50 text-blue-700 border-blue-200 animate-pulse'
+                                : cmp.status === 'failed'
+                                  ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                  : 'bg-stone-100 text-stone-700 border-stone-200'
+                          }`}>
+                            {cmp.status.toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-right space-x-1.5">
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => handleBroadcastCampaign(cmp.id)}
+                            isLoading={isBroadcasting === cmp.id}
+                            className="text-xs py-1 px-2.5"
+                          >
+                            <Send className="w-3 h-3 mr-1" />
+                            Broadcast
+                          </Button>
+                          <button
+                            onClick={() => handleDeleteCampaign(cmp.id)}
+                            className="p-1.5 text-stone-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                            title="Delete Campaign"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={7} className="text-center py-8 text-stone-400">
+                        No marketing campaigns yet. Create your first WhatsApp promo campaign above!
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* TAB: SMART CUSTOMER FEEDBACK & NPS REVIEWS */}
+      {/* ======================================================== */}
+      {activeTab === 'feedback' && (
+        <div className="space-y-6">
+          {/* NPS Ribbon Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="p-4 bg-gradient-to-br from-emerald-50/50 to-white border-emerald-200">
+              <div className="text-xs font-bold text-emerald-900">Net Promoter Score (NPS)</div>
+              <div className="text-3xl font-black text-emerald-800 mt-1">
+                {npsReport?.overallNps !== undefined ? (npsReport.overallNps > 0 ? `+${npsReport.overallNps}` : npsReport.overallNps) : '0'}
+              </div>
+              <div className="text-[11px] text-emerald-700 mt-1">
+                Range: -100 to +100 (% Promoters - % Detractors)
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <div className="text-xs font-bold text-stone-600">Average Guest Rating</div>
+              <div className="text-3xl font-black text-stone-900 mt-1 flex items-center gap-1.5">
+                <span>{npsReport?.averageRating || 5.0}</span>
+                <span className="text-amber-500 text-2xl">★</span>
+              </div>
+              <div className="text-[11px] text-stone-500 mt-1">
+                Based on {npsReport?.totalResponses || 0} customer reviews
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <div className="text-xs font-bold text-stone-600">Promoters (4-5 Stars)</div>
+              <div className="text-3xl font-black text-emerald-700 mt-1">
+                {npsReport?.promoterCount || 0}
+              </div>
+              <div className="text-[11px] text-stone-500 mt-1">
+                {npsReport?.promoterPercent || 0}% redirected to Google Maps
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <div className="text-xs font-bold text-stone-600">Detractors (1-2 Stars)</div>
+              <div className="text-3xl font-black text-rose-700 mt-1">
+                {npsReport?.detractorCount || 0}
+              </div>
+              <div className="text-[11px] text-stone-500 mt-1">
+                Shielded; flagged for manager service recovery
+              </div>
+            </Card>
+          </div>
+
+          {/* Feedback Feed */}
+          <Card className="space-y-4">
+            <div className="flex items-center justify-between border-b border-canvas-border pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
+                  <Star className="w-4 h-4 text-amber-500" />
+                  <span>Customer Review & Feedback Stream</span>
+                </h3>
+                <p className="text-xs text-stone-500">
+                  Real-time guest sentiment tracking with automated Google Review redirection for 5-star ratings.
+                </p>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setIsRecordingFeedback(true)}
+                className="text-xs"
+              >
+                + Log Feedback
+              </Button>
+            </div>
+
+            <div className="space-y-3">
+              {npsReport?.recentFeedbacks && npsReport.recentFeedbacks.length > 0 ? (
+                npsReport.recentFeedbacks.map((fb: CustomerFeedback) => (
+                  <div
+                    key={fb.id}
+                    className={`p-4 rounded-xl border transition-all ${
+                      fb.npsCategory === 'promoter'
+                        ? 'bg-emerald-50/30 border-emerald-100'
+                        : fb.npsCategory === 'detractor'
+                          ? 'bg-rose-50/40 border-rose-200'
+                          : 'bg-stone-50/40 border-stone-200'
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <span className="font-bold text-sm text-stone-900">{fb.customerName}</span>
+                        <span className="text-xs text-stone-500 font-mono">({fb.customerPhone})</span>
+                        <span className="text-amber-500 font-bold text-sm">
+                          {'★'.repeat(fb.rating)}{'☆'.repeat(5 - fb.rating)}
+                        </span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
+                          fb.npsCategory === 'promoter'
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                            : fb.npsCategory === 'detractor'
+                              ? 'bg-rose-100 text-rose-800 border-rose-200'
+                              : 'bg-amber-100 text-amber-800 border-amber-200'
+                        }`}>
+                          {fb.npsCategory.toUpperCase()}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-stone-400 font-mono">
+                          {new Date(fb.createdAt).toLocaleString()}
+                        </span>
+                        {fb.npsCategory === 'detractor' && fb.managerStatus === 'new' && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleResolveFeedback(fb.id)}
+                            className="text-xs py-1 px-2.5 text-rose-700 bg-rose-100 hover:bg-rose-200 border-rose-300"
+                          >
+                            Resolve Issue
+                          </Button>
+                        )}
+                        {fb.managerStatus === 'resolved' && (
+                          <span className="text-[10px] bg-sage-50 text-sage-800 border border-sage-200 px-2 py-0.5 rounded-full font-semibold">
+                            ✓ Resolved by Manager
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {fb.feedbackText && (
+                      <p className="text-xs text-stone-700 mt-2 bg-white/70 p-2.5 rounded-lg border border-canvas-border">
+                        "{fb.feedbackText}"
+                      </p>
+                    )}
+
+                    {fb.managerNotes && (
+                      <div className="text-[11px] text-stone-600 mt-2 bg-stone-100 p-2 rounded-lg">
+                        <span className="font-bold">Manager Note:</span> {fb.managerNotes}
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-stone-400 text-xs">
+                  No feedback records found yet.
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* TAB: AUTOMATED MARKETING JOURNEYS (AUTOPILOT) */}
+      {/* ======================================================== */}
+      {activeTab === 'automations' && automations && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* 1. Birthday Perk */}
+            <Card className="space-y-3 p-5">
+              <div className="flex items-center justify-between border-b border-canvas-border pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-pink-50 border border-pink-200 flex items-center justify-center text-pink-600">
+                    <Gift className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-stone-900">Birthday Greeting & Perk</h4>
+                    <p className="text-[11px] text-stone-500">Automated morning WhatsApp voucher on guest birthday</p>
+                  </div>
+                </div>
+                <ToggleSwitch
+                  checked={automations.birthdayPerk.enabled}
+                  onChange={(v: boolean) => setAutomations({
+                    ...automations,
+                    birthdayPerk: { ...automations.birthdayPerk, enabled: v }
+                  })}
+                  label=""
+                />
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div>
+                  <label className="font-semibold text-stone-700 block mb-1">Discount Percentage (%)</label>
+                  <input
+                    type="number"
+                    value={automations.birthdayPerk.discountPercent}
+                    onChange={e => setAutomations({
+                      ...automations,
+                      birthdayPerk: { ...automations.birthdayPerk, discountPercent: Number(e.target.value) }
+                    })}
+                    className="w-full px-3 py-1.5 rounded-lg border border-canvas-border"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-stone-700 block mb-1">WhatsApp Message Template</label>
+                  <textarea
+                    rows={4}
+                    value={automations.birthdayPerk.offerText}
+                    onChange={e => setAutomations({
+                      ...automations,
+                      birthdayPerk: { ...automations.birthdayPerk, offerText: e.target.value }
+                    })}
+                    className="w-full px-3 py-2 rounded-lg border border-canvas-border text-xs font-mono"
+                  />
+                </div>
+              </div>
+            </Card>
+
+            {/* 2. Inactivity Win-Back */}
+            <Card className="space-y-3 p-5">
+              <div className="flex items-center justify-between border-b border-canvas-border pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-stone-900">Dormant Guest Win-Back</h4>
+                    <p className="text-[11px] text-stone-500">Automated reminder for guests absent for 30+ days</p>
+                  </div>
+                </div>
+                <ToggleSwitch
+                  checked={automations.winbackTrigger.enabled}
+                  onChange={(v: boolean) => setAutomations({
+                    ...automations,
+                    winbackTrigger: { ...automations.winbackTrigger, enabled: v }
+                  })}
+                  label=""
+                />
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div>
+                  <label className="font-semibold text-stone-700 block mb-1">Inactivity Threshold (Days)</label>
+                  <input
+                    type="number"
+                    value={automations.winbackTrigger.inactiveDaysThreshold}
+                    onChange={e => setAutomations({
+                      ...automations,
+                      winbackTrigger: { ...automations.winbackTrigger, inactiveDaysThreshold: Number(e.target.value) }
+                    })}
+                    className="w-full px-3 py-1.5 rounded-lg border border-canvas-border"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-stone-700 block mb-1">WhatsApp Message Template</label>
+                  <textarea
+                    rows={4}
+                    value={automations.winbackTrigger.offerText}
+                    onChange={e => setAutomations({
+                      ...automations,
+                      winbackTrigger: { ...automations.winbackTrigger, offerText: e.target.value }
+                    })}
+                    className="w-full px-3 py-2 rounded-lg border border-canvas-border text-xs font-mono"
+                  />
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="outline"
+              size="lg"
+              disabled={isRunningDailyAutomations}
+              onClick={handleTriggerDailyAutomations}
+            >
+              <Zap className="w-4 h-4 mr-2 text-amber-500" />
+              {isRunningDailyAutomations ? 'Running Daily Triggers...' : 'Test Run Daily Journeys Now'}
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
+              onClick={handleSaveAutomations}
+            >
+              Save Automation Settings
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* CREATE CAMPAIGN MODAL */}
+      {isCreatingCampaign && (
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <Card className="w-full max-w-lg space-y-4 p-6 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-canvas-border pb-3">
+              <h3 className="font-bold text-sm text-stone-900 flex items-center gap-2">
+                <Megaphone className="w-4 h-4 text-emerald-600" />
+                <span>Create WhatsApp Broadcast Campaign</span>
+              </h3>
+              <button onClick={() => setIsCreatingCampaign(false)} className="text-stone-400 hover:text-stone-700">✕</button>
+            </div>
+
+            <form onSubmit={handleCreateCampaign} className="space-y-3 text-xs">
+              <div>
+                <label className="font-semibold text-stone-700 block mb-1">Campaign Title</label>
+                <input
+                  type="text"
+                  required
+                  value={campaignTitle}
+                  onChange={e => setCampaignTitle(e.target.value)}
+                  placeholder="e.g. Weekend Special 20% Off"
+                  className="w-full px-3 py-2 rounded-lg border border-canvas-border"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-semibold text-stone-700 block mb-1">Target Customer Segment</label>
+                  <select
+                    value={campaignSegment}
+                    onChange={e => setCampaignSegment(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-lg border border-canvas-border"
+                  >
+                    <option value="all">All Guests ({rfmSummary.all})</option>
+                    <option value="champions">Champions / VIP ({rfmSummary.champions})</option>
+                    <option value="loyal">Loyal Regulars ({rfmSummary.loyal})</option>
+                    <option value="at_risk">At-Risk ({rfmSummary.at_risk})</option>
+                    <option value="dormant">Dormant ({rfmSummary.dormant})</option>
+                    <option value="new">New Visitors ({rfmSummary.new})</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-semibold text-stone-700 block mb-1">Promo Code & Discount</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={campaignOfferCode}
+                      onChange={e => setCampaignOfferCode(e.target.value)}
+                      placeholder="CODE20"
+                      className="w-2/3 px-2 py-2 rounded-lg border border-canvas-border font-mono uppercase"
+                    />
+                    <input
+                      type="number"
+                      value={campaignDiscount}
+                      onChange={e => setCampaignDiscount(Number(e.target.value))}
+                      placeholder="%"
+                      className="w-1/3 px-2 py-2 rounded-lg border border-canvas-border"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-semibold text-stone-700 block mb-1">WhatsApp Message Template</label>
+                <textarea
+                  rows={4}
+                  required
+                  value={campaignTemplate}
+                  onChange={e => setCampaignTemplate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-canvas-border font-mono text-[11px]"
+                />
+                <span className="text-[10px] text-stone-400 mt-1 block">
+                  Tokens: {"{{name}}"}, {"{{discount}}"}, {"{{offerCode}}"}, {"{{points}}"}, {"{{restaurantName}}"}
+                </span>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setIsCreatingCampaign(false)}>Cancel</Button>
+                <Button type="submit" variant="primary">Create Campaign</Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
+      {/* RECORD FEEDBACK MODAL */}
+      {isRecordingFeedback && (
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <Card className="w-full max-w-md space-y-4 p-6 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-canvas-border pb-3">
+              <h3 className="font-bold text-sm text-stone-900 flex items-center gap-2">
+                <Star className="w-4 h-4 text-amber-500" />
+                <span>Record Customer Review / Feedback</span>
+              </h3>
+              <button onClick={() => setIsRecordingFeedback(false)} className="text-stone-400 hover:text-stone-700">✕</button>
+            </div>
+
+            <form onSubmit={handleSubmitFeedback} className="space-y-3 text-xs">
+              <div>
+                <label className="font-semibold text-stone-700 block mb-1">Customer Mobile Number</label>
+                <input
+                  type="text"
+                  required
+                  value={fbPhone}
+                  onChange={e => setFbPhone(e.target.value)}
+                  placeholder="e.g. 9876543210"
+                  className="w-full px-3 py-2 rounded-lg border border-canvas-border font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-stone-700 block mb-1">Customer Name</label>
+                <input
+                  type="text"
+                  value={fbName}
+                  onChange={e => setFbName(e.target.value)}
+                  placeholder="e.g. Priya Sharma"
+                  className="w-full px-3 py-2 rounded-lg border border-canvas-border"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-stone-700 block mb-1">Rating (1 to 5 Stars)</label>
+                <div className="flex items-center gap-2 py-1">
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setFbRating(star)}
+                      className={`text-2xl transition-all ${fbRating >= star ? 'text-amber-500 scale-110' : 'text-stone-300'}`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                  <span className="text-xs font-bold text-stone-700 ml-2">
+                    {fbRating >= 4 ? 'Promoter (Google Maps)' : fbRating === 3 ? 'Passive' : 'Detractor (Alert Manager)'}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-semibold text-stone-700 block mb-1">Customer Comments</label>
+                <textarea
+                  rows={3}
+                  value={fbText}
+                  onChange={e => setFbText(e.target.value)}
+                  placeholder="What did the customer say about food, ambience or service?"
+                  className="w-full px-3 py-2 rounded-lg border border-canvas-border text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-stone-700 block mb-1">Feedback Tags (comma-separated)</label>
+                <input
+                  type="text"
+                  value={fbTags}
+                  onChange={e => setFbTags(e.target.value)}
+                  placeholder="food, service, ambience, pricing"
+                  className="w-full px-3 py-1.5 rounded-lg border border-canvas-border text-xs"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setIsRecordingFeedback(false)}>Cancel</Button>
+                <Button type="submit" variant="primary">Submit Feedback</Button>
+              </div>
+            </form>
           </Card>
         </div>
       )}

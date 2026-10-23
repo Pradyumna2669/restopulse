@@ -85,24 +85,137 @@ Thank you for your love and support! 🙏`
   }
 
   /**
-   * Send WhatsApp text message via self-hosted OpenWA API (U:\auto-wa\OpenWA)
+   * Check OpenWA gateway connection status
    */
-  public static async sendTextMessage(chatId: string, text: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  public static async checkConnection(configOverride?: { apiUrl?: string; sessionId?: string; apiKey?: string }): Promise<{
+    online: boolean;
+    statusCode?: number;
+    apiUrl: string;
+    sessionId: string;
+    error?: string;
+    details?: any;
+  }> {
     const profile = store.getProfile();
-    const { apiUrl, sessionId, apiKey } = profile.openwaConfig;
+    const apiUrl = configOverride?.apiUrl || profile.openwaConfig.apiUrl || 'http://localhost:2785';
+    const sessionId = configOverride?.sessionId || profile.openwaConfig.sessionId || 'default';
+    const apiKey = configOverride?.apiKey !== undefined ? configOverride.apiKey : profile.openwaConfig.apiKey;
 
-    const endpoint = `${apiUrl}/api/sessions/${sessionId}/messages/send-text`;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    if (apiKey) {
+      headers['X-Api-Key'] = apiKey;
+      headers['api_key'] = apiKey;
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
 
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
+      // Primary: check specific session
+      const resp = await axios.get(`${apiUrl}/api/sessions/${sessionId}`, {
+        headers,
+        timeout: 4000
+      });
+      return {
+        online: true,
+        statusCode: 200,
+        apiUrl,
+        sessionId,
+        details: resp.data
       };
-      if (apiKey) {
-        headers['X-Api-Key'] = apiKey;
+    } catch (err: any) {
+      const status = err.response?.status;
+      if (status === 401) {
+        return {
+          online: false,
+          statusCode: 401,
+          apiUrl,
+          sessionId,
+          error: '401 Unauthorized: An API Key is required or the provided key is invalid.'
+        };
+      }
+      if (status === 403) {
+        return {
+          online: false,
+          statusCode: 403,
+          apiUrl,
+          sessionId,
+          error: '403 Forbidden: API key does not have access permissions.'
+        };
+      }
+      if (status === 404) {
+        // Try fallback to sessions list
+        try {
+          const listResp = await axios.get(`${apiUrl}/api/sessions`, { headers, timeout: 3000 });
+          const sessions = Array.isArray(listResp.data) ? listResp.data : [];
+          const found = sessions.some((s: any) => (typeof s === 'string' ? s === sessionId : s.name === sessionId || s.id === sessionId));
+          return {
+            online: true,
+            statusCode: 200,
+            apiUrl,
+            sessionId,
+            details: {
+              activeSessions: sessions,
+              sessionActive: found,
+              note: found ? 'Session found' : `Session "${sessionId}" not yet started in OpenWA`
+            }
+          };
+        } catch (innerErr: any) {
+          return {
+            online: false,
+            statusCode: 404,
+            apiUrl,
+            sessionId,
+            error: `Session "${sessionId}" not found on OpenWA gateway at ${apiUrl}.`
+          };
+        }
       }
 
+      if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+        return {
+          online: false,
+          statusCode: 0,
+          apiUrl,
+          sessionId,
+          error: `Connection refused at ${apiUrl}. Verify server address, port, and ensure OpenWA is running.`
+        };
+      }
+
+      return {
+        online: false,
+        statusCode: status,
+        apiUrl,
+        sessionId,
+        error: err.response?.data?.message || err.message || 'Error communicating with OpenWA'
+      };
+    }
+  }
+
+  /**
+   * Send WhatsApp text message via self-hosted OpenWA API (U:\auto-wa\OpenWA)
+   */
+  public static async sendTextMessage(
+    chatId: string, 
+    text: string,
+    configOverride?: { apiUrl?: string; sessionId?: string; apiKey?: string }
+  ): Promise<{ success: boolean; messageId?: string; error?: string; statusCode?: number }> {
+    const profile = store.getProfile();
+    const apiUrl = configOverride?.apiUrl || profile.openwaConfig.apiUrl || 'http://localhost:2785';
+    const sessionId = configOverride?.sessionId || profile.openwaConfig.sessionId || 'default';
+    const apiKey = configOverride?.apiKey !== undefined ? configOverride.apiKey : profile.openwaConfig.apiKey;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    if (apiKey) {
+      headers['X-Api-Key'] = apiKey;
+      headers['api_key'] = apiKey;
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+
+    // Try primary OpenWA / WAHA endpoint: /api/sessions/:sessionId/messages/send-text
+    try {
       const response = await axios.post(
-        endpoint,
+        `${apiUrl}/api/sessions/${sessionId}/messages/send-text`,
         {
           chatId,
           text,
@@ -110,19 +223,50 @@ Thank you for your love and support! 🙏`
         },
         {
           headers,
-          timeout: 10000
+          timeout: 12000
         }
       );
 
       return {
         success: true,
-        messageId: response.data?.id || 'openwa_msg_ok'
+        messageId: response.data?.id || response.data?.messageId || 'openwa_msg_ok'
       };
     } catch (err: any) {
+      const status = err.response?.status;
+      // If 404 on endpoint, try alternative WAHA/OpenWA format: POST /api/sendText
+      if (status === 404) {
+        try {
+          const fallbackResp = await axios.post(
+            `${apiUrl}/api/sendText`,
+            {
+              session: sessionId,
+              chatId,
+              text
+            },
+            {
+              headers,
+              timeout: 12000
+            }
+          );
+          return {
+            success: true,
+            messageId: fallbackResp.data?.id || fallbackResp.data?.messageId || 'openwa_msg_ok'
+          };
+        } catch (fallbackErr: any) {
+          const errMsg = fallbackErr.response?.data?.message || fallbackErr.message || 'Failed to reach OpenWA gateway';
+          return {
+            success: false,
+            statusCode: fallbackErr.response?.status,
+            error: errMsg
+          };
+        }
+      }
+
       const errMsg = err.response?.data?.message || err.message || 'Failed to reach OpenWA gateway';
       console.warn(`[OpenWA] Failed to send message to ${chatId}:`, errMsg);
       return {
         success: false,
+        statusCode: status,
         error: errMsg
       };
     }

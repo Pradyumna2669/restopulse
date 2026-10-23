@@ -14,6 +14,7 @@ import { hardwareService } from '../services/hardwarePeripheral.service';
 import { securityService } from '../services/securityHardening.service';
 import { backupService } from '../services/backup.service';
 import { systemHealthService } from '../services/systemHealth.service';
+import { MarketingEngineService } from '../services/marketingEngine.service';
 import {
   Order,
   Bill,
@@ -61,32 +62,66 @@ apiRouter.put('/features', (req: Request, res: Response) => {
 });
 
 apiRouter.get('/openwa/status', async (req: Request, res: Response) => {
-  const profile = store.getProfile();
-  const { apiUrl, sessionId, apiKey } = profile.openwaConfig;
+  const result = await OpenWAService.checkConnection();
+  res.json({
+    online: result.online,
+    statusCode: result.statusCode,
+    apiUrl: result.apiUrl,
+    sessionId: result.sessionId,
+    sessionData: result.details,
+    error: result.error
+  });
+});
 
-  try {
-    const headers: Record<string, string> = {};
-    if (apiKey) headers['X-Api-Key'] = apiKey;
+apiRouter.post('/openwa/test-connection', async (req: Request, res: Response) => {
+  const { apiUrl, sessionId, apiKey } = req.body || {};
+  const result = await OpenWAService.checkConnection({ apiUrl, sessionId, apiKey });
+  res.json({
+    online: result.online,
+    statusCode: result.statusCode,
+    apiUrl: result.apiUrl,
+    sessionId: result.sessionId,
+    sessionData: result.details,
+    error: result.error
+  });
+});
 
-    const resp = await axios.get(`${apiUrl}/api/sessions/${sessionId}`, {
-      headers,
-      timeout: 3000
+apiRouter.post('/openwa/send-test', async (req: Request, res: Response) => {
+  const { phone, text, apiUrl, sessionId, apiKey } = req.body || {};
+
+  if (!phone || typeof phone !== 'string' || phone.trim().length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'Recipient phone number is required (e.g. 919876543210).'
     });
+  }
 
+  const messageText = text && typeof text === 'string' && text.trim().length > 0 
+    ? text.trim() 
+    : '🎉 *Hello from RestroPlus POS!*\n\nYour self-hosted WhatsApp Gateway connection has been verified and is working properly. ✨';
+
+  const chatId = OpenWAService.normalizeChatId(phone.trim());
+  console.log(`[OpenWA Test] Dispatching test WhatsApp to ${chatId}...`);
+
+  const result = await OpenWAService.sendTextMessage(chatId, messageText, {
+    apiUrl,
+    sessionId,
+    apiKey
+  });
+
+  if (result.success) {
     res.json({
-      online: true,
-      apiUrl,
-      sessionId,
-      sessionData: resp.data
+      success: true,
+      chatId,
+      messageId: result.messageId,
+      message: `Test message successfully dispatched to ${chatId}`
     });
-  } catch (err: any) {
-    res.json({
-      online: false,
-      apiUrl,
-      sessionId,
-      error: err.code === 'ECONNREFUSED' 
-        ? `OpenWA service is offline at ${apiUrl}. Make sure OpenWA is running.` 
-        : (err.message || 'Error communicating with OpenWA')
+  } else {
+    res.status(result.statusCode === 401 ? 401 : (result.statusCode || 502)).json({
+      success: false,
+      chatId,
+      statusCode: result.statusCode,
+      error: result.error || 'Failed to dispatch test WhatsApp message'
     });
   }
 });
@@ -1748,3 +1783,116 @@ apiRouter.delete('/system/backups/:id', (req: Request, res: Response) => {
 
 
 
+
+// ==========================================
+// Phase 11: Reelo Marketing Campaigns, RFM & Feedback Hub
+// ==========================================
+
+// 1. RFM Customer Segments
+apiRouter.get('/marketing/segments', (req: Request, res: Response) => {
+  const result = MarketingEngineService.calculateRfmSegments();
+  res.json(result);
+});
+
+// 2. Marketing Campaigns CRUD & Broadcast
+apiRouter.get('/marketing/campaigns', (req: Request, res: Response) => {
+  res.json(store.getMarketingCampaigns());
+});
+
+apiRouter.post('/marketing/campaigns', (req: Request, res: Response) => {
+  const { title, type, targetSegment, templateMessage, offerCode, discountPercent } = req.body;
+
+  if (!title || !templateMessage) {
+    return res.status(400).json({ error: 'Title and templateMessage are required' });
+  }
+
+  const newCampaign = {
+    id: 'cmp_' + uuidv4().slice(0, 8),
+    title,
+    type: type || 'whatsapp',
+    targetSegment: targetSegment || 'all',
+    templateMessage,
+    offerCode: offerCode || 'SPECIAL',
+    discountPercent: Number(discountPercent) || 0,
+    status: 'draft' as const,
+    recipientCount: 0,
+    deliveredCount: 0,
+    failedCount: 0,
+    createdAt: new Date().toISOString()
+  };
+
+  const created = store.createMarketingCampaign(newCampaign);
+  res.status(201).json(created);
+});
+
+apiRouter.post('/marketing/campaigns/:id/send', async (req: Request, res: Response) => {
+  try {
+    const result = await MarketingEngineService.broadcastCampaign(req.params.id);
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+apiRouter.delete('/marketing/campaigns/:id', (req: Request, res: Response) => {
+  const success = store.deleteMarketingCampaign(req.params.id);
+  if (!success) {
+    return res.status(404).json({ error: 'Campaign not found' });
+  }
+  res.json({ success: true, message: 'Campaign deleted' });
+});
+
+// 3. Customer Feedback & NPS Intelligence
+apiRouter.get('/marketing/feedback', (req: Request, res: Response) => {
+  const report = MarketingEngineService.getNpsSummary();
+  res.json(report);
+});
+
+apiRouter.post('/marketing/feedback', (req: Request, res: Response) => {
+  const { customerPhone, customerName, billId, rating, feedbackText, tags } = req.body;
+
+  if (!customerPhone || !rating) {
+    return res.status(400).json({ error: 'customerPhone and rating are required' });
+  }
+
+  const result = MarketingEngineService.submitCustomerFeedback({
+    customerPhone,
+    customerName,
+    billId,
+    rating: Number(rating),
+    feedbackText,
+    tags
+  });
+
+  res.status(201).json(result);
+});
+
+apiRouter.patch('/marketing/feedback/:id/resolve', (req: Request, res: Response) => {
+  const { notes } = req.body;
+  const updated = store.updateCustomerFeedback(req.params.id, {
+    managerStatus: 'resolved',
+    managerNotes: notes || 'Resolved with guest by restaurant management',
+    resolvedAt: new Date().toISOString()
+  });
+
+  if (!updated) {
+    return res.status(404).json({ error: 'Feedback record not found' });
+  }
+
+  res.json(updated);
+});
+
+// 4. Marketing Lifecycle Automations (Birthday, Inactivity Win-Back, Review Nudge)
+apiRouter.get('/marketing/automations', (req: Request, res: Response) => {
+  res.json(store.getMarketingAutomations());
+});
+
+apiRouter.put('/marketing/automations', (req: Request, res: Response) => {
+  const updated = store.updateMarketingAutomations(req.body);
+  res.json(updated);
+});
+
+apiRouter.post('/marketing/automations/run-daily', async (req: Request, res: Response) => {
+  const result = await MarketingEngineService.runDailyAutomations();
+  res.json(result);
+});

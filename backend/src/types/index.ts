@@ -366,15 +366,22 @@ export interface SplitPaymentEntry {
   amount: number;
 }
 
+export type RfmSegment = 'champions' | 'loyal' | 'at_risk' | 'dormant' | 'new';
+
 export interface CustomerProfile {
   id: string;
   name: string;
   phone: string;
   email?: string;
+  birthday?: string;
+  anniversary?: string;
   visitsCount: number;
   totalSpend: number;
   loyaltyPoints: number;
   tier: 'Bronze' | 'Silver' | 'Gold' | 'VIP Platinum';
+  rfmSegment?: RfmSegment;
+  averageOrderValue?: number;
+  daysSinceLastVisit?: number;
   favoriteItems: string[];
   lastVisit: string;
   notes?: string;
@@ -1255,3 +1262,69 @@ export interface SystemHealthReport {
 
 
 
+
+// ==========================================
+// Phase 11: Reelo-Style Marketing, RFM & Feedback Hub
+// ==========================================
+export interface MarketingCampaign {
+  id: string;
+  title: string;
+  type: 'whatsapp' | 'sms';
+  targetSegment: 'all' | RfmSegment;
+  templateMessage: string;
+  offerCode?: string;
+  discountPercent?: number;
+  status: 'draft' | 'scheduled' | 'sending' | 'completed' | 'failed';
+  scheduledAt?: string;
+  sentAt?: string;
+  recipientCount: number;
+  deliveredCount: number;
+  failedCount: number;
+  createdAt: string;
+}
+
+export interface CustomerFeedback {
+  id: string;
+  customerPhone: string;
+  customerName?: string;
+  billId?: string;
+  rating: number; // 1 to 5
+  feedbackText?: string;
+  tags: string[];
+  npsCategory: 'promoter' | 'passive' | 'detractor';
+  managerStatus: 'new' | 'reviewed' | 'resolved';
+  managerNotes?: string;
+  resolvedAt?: string;
+  createdAt: string;
+}
+
+export interface AutomatedTriggerConfig {
+  birthdayPerk: {
+    enabled: boolean;
+    offerText: string;
+    discountPercent: number;
+    validityDays: number;
+  };
+  winbackTrigger: {
+    enabled: boolean;
+    inactiveDaysThreshold: number;
+    offerText: string;
+    discountPercent: number;
+  };
+  feedbackNudge: {
+    enabled: boolean;
+    delayMinutes: number;
+  };
+}
+
+export interface NpsSummaryReport {
+  overallNps: number;
+  totalResponses: number;
+  averageRating: number;
+  promoterCount: number;
+  passiveCount: number;
+  detractorCount: number;
+  promoterPercent: number;
+  detractorPercent: number;
+  recentFeedbacks: CustomerFeedback[];
+}

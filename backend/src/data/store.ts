@@ -47,7 +47,11 @@ import {
   OutletInventoryLevel,
   MaterialStockMatrixEntry,
   OutletRoyaltySummary,
-  ConsolidatedHqReport
+  ConsolidatedHqReport,
+  MarketingCampaign,
+  CustomerFeedback,
+  AutomatedTriggerConfig,
+  RfmSegment
 } from '../types';
 
 interface StoreData {
@@ -76,6 +80,9 @@ interface StoreData {
   outlets: Outlet[];
   outletMenuOverrides: OutletMenuOverride[];
   stockTransfers: InterStoreTransfer[];
+  marketingCampaigns?: MarketingCampaign[];
+  customerFeedbacks?: CustomerFeedback[];
+  marketingAutomations?: AutomatedTriggerConfig;
 }
 
 const DATA_FILE = path.join(__dirname, 'restopulse-db.json');
@@ -910,6 +917,95 @@ export const initialOutletMenuOverrides: OutletMenuOverride[] = [
   }
 ];
 
+
+export const defaultMarketingAutomations: AutomatedTriggerConfig = {
+  birthdayPerk: {
+    enabled: true,
+    offerText: '🎂 *Happy Birthday {{name}} from {{restaurantName}}!*\n\nCelebrate your special day with us! Show this message and enjoy a *complimentary dessert* and *20% off* your meal today. ✨\n\nValid for 7 days. We look forward to hosting you!',
+    discountPercent: 20,
+    validityDays: 7
+  },
+  winbackTrigger: {
+    enabled: true,
+    inactiveDaysThreshold: 30,
+    offerText: '☕ *We Miss You, {{name}}!*\n\nIt has been a while since your last visit to *{{restaurantName}}*. We would love to welcome you back!\n\nHere is an exclusive *15% discount voucher* (Promo: *WELCOMEBACK15*) on your next dining or takeaway visit. See you soon! ❤️',
+    discountPercent: 15
+  },
+  feedbackNudge: {
+    enabled: true,
+    delayMinutes: 30
+  }
+};
+
+export const initialMarketingCampaigns: MarketingCampaign[] = [
+  {
+    id: 'cmp_weekend_brunch',
+    title: 'Weekend Chef Specials (Flat 20% Off)',
+    type: 'whatsapp',
+    targetSegment: 'all',
+    templateMessage: '🍽️ *WEEKEND SPECIAL AT {{restaurantName}}!*\n\nHey {{name}},\nKickstart your weekend with our chef\'s new artisanal tasting menu. Get *{{discount}}% OFF* this Saturday & Sunday with code *{{offerCode}}*.\n\nYou also have *{{points}} loyalty points* ready to redeem!\n\n📍 Visit us today to reserve your table.',
+    offerCode: 'WEEKEND20',
+    discountPercent: 20,
+    status: 'completed',
+    sentAt: '2026-10-21T10:00:00.000Z',
+    recipientCount: 12,
+    deliveredCount: 11,
+    failedCount: 1,
+    createdAt: '2026-10-20T16:00:00.000Z'
+  },
+  {
+    id: 'cmp_dormant_winback',
+    title: '30-Day Inactive Win-Back (We Miss You)',
+    type: 'whatsapp',
+    targetSegment: 'at_risk',
+    templateMessage: '✨ *WE MISS YOU AT {{restaurantName}}!*\n\nDear {{name}},\nIt\'s been over 30 days! As our valued {{tier}} member, enjoy *{{discount}}% OFF* your next order with code *{{offerCode}}*.\n\nTreat yourself today — we\'d love to serve you again! ❤️',
+    offerCode: 'COMEBACK15',
+    discountPercent: 15,
+    status: 'draft',
+    recipientCount: 5,
+    deliveredCount: 0,
+    failedCount: 0,
+    createdAt: '2026-10-22T14:00:00.000Z'
+  }
+];
+
+export const initialCustomerFeedbacks: CustomerFeedback[] = [
+  {
+    id: 'fb_001',
+    customerPhone: '9876543210',
+    customerName: 'Rohan Mehra',
+    rating: 5,
+    feedbackText: 'Outstanding butter chicken and warm ambiance! Staff was super polite.',
+    tags: ['food', 'service', 'ambience'],
+    npsCategory: 'promoter',
+    managerStatus: 'reviewed',
+    createdAt: '2026-10-22T18:30:00.000Z'
+  },
+  {
+    id: 'fb_002',
+    customerPhone: '9822012345',
+    customerName: 'Ananya Iyer',
+    rating: 5,
+    feedbackText: 'Loved the artisan coffee and quick takeaway service.',
+    tags: ['coffee', 'speed'],
+    npsCategory: 'promoter',
+    managerStatus: 'reviewed',
+    createdAt: '2026-10-22T19:15:00.000Z'
+  },
+  {
+    id: 'fb_003',
+    customerPhone: '9899011223',
+    customerName: 'Vikram Malhotra',
+    rating: 2,
+    feedbackText: 'Main course took almost 30 minutes to arrive. Food was good once it came though.',
+    tags: ['delay', 'service'],
+    npsCategory: 'detractor',
+    managerStatus: 'new',
+    managerNotes: 'Spoke with head waiter; delayed due to peak rush.',
+    createdAt: '2026-10-23T09:45:00.000Z'
+  }
+];
+
 export const initialStockTransfers: InterStoreTransfer[] = [
   {
     id: 'ist_01',
@@ -1149,7 +1245,11 @@ class Store {
       featureFlags: {
         ...this.data.profile.featureFlags,
         ...(update.featureFlags || {})
-      }
+      },
+      openwaConfig: {
+        ...this.data.profile.openwaConfig,
+        ...(update.openwaConfig || {})
+      },
     };
     this.save(this.data);
     return this.data.profile;
@@ -1789,25 +1889,25 @@ class Store {
     const existing = this.getCustomerByPhone(cleanPhone);
 
     if (existing) {
-      if (profile.name) existing.name = profile.name;
-      if (profile.email !== undefined) existing.email = profile.email;
-      if (profile.notes !== undefined) existing.notes = profile.notes;
-      if (profile.loyaltyPoints !== undefined) existing.loyaltyPoints = profile.loyaltyPoints;
+      Object.assign(existing, profile);
+      existing.phone = cleanPhone;
       this.save(this.data);
       return existing;
     }
 
     const newCust: CustomerProfile = {
-      id: 'cust_' + uuidv4().slice(0, 8),
+      id: profile.id || ('cust_' + uuidv4().slice(0, 8)),
       name: profile.name || 'Valued Guest',
       phone: cleanPhone,
       email: profile.email || '',
-      visitsCount: 1,
-      totalSpend: 0,
+      birthday: profile.birthday,
+      anniversary: profile.anniversary,
+      visitsCount: profile.visitsCount !== undefined ? profile.visitsCount : 1,
+      totalSpend: profile.totalSpend !== undefined ? profile.totalSpend : 0,
       loyaltyPoints: profile.loyaltyPoints || 0,
-      tier: 'Bronze',
-      favoriteItems: [],
-      lastVisit: new Date().toISOString(),
+      tier: profile.tier || 'Bronze',
+      favoriteItems: profile.favoriteItems || [],
+      lastVisit: profile.lastVisit || new Date().toISOString(),
       notes: profile.notes || ''
     };
     this.data.customers.push(newCust);
@@ -2875,8 +2975,112 @@ class Store {
       outletBreakdown: outletSummaries
     };
   }
+
+  // ==========================================
+  // 5. Reelo Marketing Campaigns, Feedback & Automations
+  // ==========================================
+  getMarketingCampaigns(): MarketingCampaign[] {
+    if (!this.data.marketingCampaigns || this.data.marketingCampaigns.length === 0) {
+      this.data.marketingCampaigns = initialMarketingCampaigns;
+      this.save(this.data);
+    }
+    return this.data.marketingCampaigns;
+  }
+
+  getMarketingCampaignById(id: string): MarketingCampaign | undefined {
+    return this.getMarketingCampaigns().find(c => c.id === id);
+  }
+
+  createMarketingCampaign(campaign: MarketingCampaign): MarketingCampaign {
+    if (!this.data.marketingCampaigns) {
+      this.data.marketingCampaigns = [];
+    }
+    this.data.marketingCampaigns.push(campaign);
+    this.save(this.data);
+    return campaign;
+  }
+
+  updateMarketingCampaign(id: string, update: Partial<MarketingCampaign>): MarketingCampaign | undefined {
+    const campaigns = this.getMarketingCampaigns();
+    const idx = campaigns.findIndex(c => c.id === id);
+    if (idx !== -1) {
+      campaigns[idx] = { ...campaigns[idx], ...update };
+      this.save(this.data);
+      return campaigns[idx];
+    }
+    return undefined;
+  }
+
+  deleteMarketingCampaign(id: string): boolean {
+    const campaigns = this.getMarketingCampaigns();
+    const idx = campaigns.findIndex(c => c.id === id);
+    if (idx !== -1) {
+      campaigns.splice(idx, 1);
+      this.save(this.data);
+      return true;
+    }
+    return false;
+  }
+
+  getCustomerFeedbacks(): CustomerFeedback[] {
+    if (!this.data.customerFeedbacks || this.data.customerFeedbacks.length === 0) {
+      this.data.customerFeedbacks = initialCustomerFeedbacks;
+      this.save(this.data);
+    }
+    return this.data.customerFeedbacks;
+  }
+
+  addCustomerFeedback(feedback: CustomerFeedback): CustomerFeedback {
+    if (!this.data.customerFeedbacks) {
+      this.data.customerFeedbacks = [];
+    }
+    this.data.customerFeedbacks.push(feedback);
+    this.save(this.data);
+    return feedback;
+  }
+
+  updateCustomerFeedback(id: string, update: Partial<CustomerFeedback>): CustomerFeedback | undefined {
+    const list = this.getCustomerFeedbacks();
+    const idx = list.findIndex(f => f.id === id);
+    if (idx !== -1) {
+      list[idx] = { ...list[idx], ...update };
+      this.save(this.data);
+      return list[idx];
+    }
+    return undefined;
+  }
+
+  getMarketingAutomations(): AutomatedTriggerConfig {
+    if (!this.data.marketingAutomations) {
+      this.data.marketingAutomations = defaultMarketingAutomations;
+      this.save(this.data);
+    }
+    return this.data.marketingAutomations;
+  }
+
+  updateMarketingAutomations(update: Partial<AutomatedTriggerConfig>): AutomatedTriggerConfig {
+    const current = this.getMarketingAutomations();
+    this.data.marketingAutomations = {
+      ...current,
+      ...update,
+      birthdayPerk: {
+        ...current.birthdayPerk,
+        ...(update.birthdayPerk || {})
+      },
+      winbackTrigger: {
+        ...current.winbackTrigger,
+        ...(update.winbackTrigger || {})
+      },
+      feedbackNudge: {
+        ...current.feedbackNudge,
+        ...(update.feedbackNudge || {})
+      }
+    };
+    this.save(this.data);
+    return this.data.marketingAutomations;
+  }
 }
 
-
 export const store = new Store();
+
 
