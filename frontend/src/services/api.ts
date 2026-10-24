@@ -59,7 +59,10 @@ import {
   BackupMetadata,
   RestoreResult,
   RateLimitStatus,
-  SystemHealthReport
+  SystemHealthReport,
+  GatewayCredential,
+  GatewaySettings,
+  PaymentProvider
 } from '../types';
 
 const API_BASE = '/api';
@@ -1005,6 +1008,56 @@ export const ApiService = {
 
   async getPaymentStatus(paymentId: string): Promise<{ success: boolean; payment: PaymentTransaction }> {
     const res = await fetchWithTimeout(`${API_BASE}/payments/${paymentId}/status`);
+    return res.json();
+  },
+
+  // Phase 13: Payment Gateways Integration (Razorpay, PhonePe, Paytm, Stripe, Pine Labs)
+  async getGatewaySettings(): Promise<GatewaySettings> {
+    const res = await fetchWithTimeout(`${API_BASE}/gateways/settings`);
+    return res.json();
+  },
+
+  async updateGatewayCredentials(
+    provider: PaymentProvider,
+    data: Partial<GatewayCredential>
+  ): Promise<{ success: boolean; gatewaySettings: GatewaySettings }> {
+    const res = await fetchWithTimeout(`${API_BASE}/gateways/${provider}/credentials`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+
+  async testGatewayConnection(
+    provider: PaymentProvider
+  ): Promise<{ success: boolean; provider: PaymentProvider; message: string; error?: string }> {
+    const res = await fetchWithTimeout(`${API_BASE}/gateways/${provider}/test`, {
+      method: 'POST'
+    });
+    return res.json();
+  },
+
+  async setPrimaryGateway(
+    provider: PaymentProvider
+  ): Promise<{ success: boolean; gatewaySettings: GatewaySettings }> {
+    const res = await fetchWithTimeout(`${API_BASE}/gateways/primary`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider })
+    });
+    return res.json();
+  },
+
+  async simulateGatewayWebhook(
+    provider: PaymentProvider,
+    data: { amount: number; paymentId?: string; payerVpa?: string }
+  ): Promise<{ success: boolean; settled: boolean; payment?: PaymentTransaction; soundboxSpeech?: string; error?: string }> {
+    const res = await fetchWithTimeout(`${API_BASE}/webhooks/gateways/${provider}/simulate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
     return res.json();
   },
 

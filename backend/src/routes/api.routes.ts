@@ -6,6 +6,7 @@ import { OpenWAService } from '../services/openwa.service';
 import { EscPosService } from '../services/escpos.service';
 import { AggregatorSecurityService } from '../services/aggregatorSecurity.service';
 import { PaymentAutomationService } from '../services/paymentAutomation.service';
+import { PaymentGatewayService } from '../services/paymentGateway.service';
 import { InventoryCostingService } from '../services/inventoryCosting.service';
 import { KdsService } from '../services/kdsService';
 import { LoyaltyEngineService } from '../services/loyaltyEngine.service';
@@ -1105,6 +1106,68 @@ apiRouter.post('/payments/edc/push', (req: Request, res: Response) => {
   if (!result.success) {
     return res.status(400).json({ error: result.error });
   }
+  res.json(result);
+});
+
+// Phase 13: Owner Payment Gateway Integration (Razorpay, PhonePe, Paytm, Stripe, Pine Labs)
+apiRouter.get('/gateways/settings', (req: Request, res: Response) => {
+  const settings = PaymentGatewayService.getGatewaySettings();
+  res.json(settings);
+});
+
+apiRouter.post('/gateways/:provider/credentials', (req: Request, res: Response) => {
+  const provider = req.params.provider as PaymentProvider;
+  const { enabled, environment, credentials } = req.body;
+  const result = PaymentGatewayService.updateGateway(provider, {
+    enabled,
+    environment,
+    credentials
+  });
+  res.json(result);
+});
+
+apiRouter.post('/gateways/:provider/test', (req: Request, res: Response) => {
+  const provider = req.params.provider as PaymentProvider;
+  const result = PaymentGatewayService.testGatewayConnection(provider);
+  res.json(result);
+});
+
+apiRouter.post('/gateways/primary', (req: Request, res: Response) => {
+  const { provider } = req.body;
+  if (!provider) {
+    return res.status(400).json({ error: 'Primary provider is required' });
+  }
+  const result = PaymentGatewayService.setPrimaryGateway(provider as PaymentProvider);
+  res.json(result);
+});
+
+// Live Inbound Webhook from Gateways (Razorpay, PhonePe, Paytm, Stripe, Pine Labs)
+apiRouter.post('/webhooks/gateways/:provider', (req: Request, res: Response) => {
+  const provider = req.params.provider as PaymentProvider;
+  const signature = (
+    req.headers['x-razorpay-signature'] ||
+    req.headers['x-verify'] ||
+    req.headers['stripe-signature'] ||
+    req.headers['x-gateway-signature']
+  ) as string | undefined;
+
+  const result = PaymentGatewayService.processInboundGatewayWebhook(provider, req.body, signature);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+  res.json(result);
+});
+
+// Simulation endpoint for Owner testing in Settings UI
+apiRouter.post('/webhooks/gateways/:provider/simulate', (req: Request, res: Response) => {
+  const provider = req.params.provider as PaymentProvider;
+  const { amount = 500, paymentId, payerVpa } = req.body;
+  const result = PaymentGatewayService.processInboundGatewayWebhook(provider, {
+    paymentId,
+    amount,
+    providerTransactionId: `SIM_${provider.toUpperCase()}_${Date.now()}`,
+    payerVpa: payerVpa || `user@${provider}`
+  });
   res.json(result);
 });
 

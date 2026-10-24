@@ -7,7 +7,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "tsc && node dist/server.js",
-    "test": "ts-node src/tests/phase1-security.test.ts && ts-node src/tests/phase2-pos-offline-printer.test.ts && ts-node src/tests/phase3-payments-aggregators.test.ts && ts-node src/tests/phase4-inventory-procurement.test.ts && ts-node src/tests/phase5-service-kds.test.ts && ts-node src/tests/phase6-crm-concepts.test.ts && ts-node src/tests/phase7-reporting-tax.test.ts && ts-node src/tests/phase8-multi-outlet.test.ts && ts-node src/tests/phase9-hardware-peripherals.test.ts && ts-node src/tests/phase10-production-hardening.test.ts && ts-node src/tests/phase11-marketing-crm.test.ts && ts-node src/tests/phase12-automated-payments.test.ts",
+    "test": "ts-node src/tests/phase1-security.test.ts && ts-node src/tests/phase2-pos-offline-printer.test.ts && ts-node src/tests/phase3-payments-aggregators.test.ts && ts-node src/tests/phase4-inventory-procurement.test.ts && ts-node src/tests/phase5-service-kds.test.ts && ts-node src/tests/phase6-crm-concepts.test.ts && ts-node src/tests/phase7-reporting-tax.test.ts && ts-node src/tests/phase8-multi-outlet.test.ts && ts-node src/tests/phase9-hardware-peripherals.test.ts && ts-node src/tests/phase10-production-hardening.test.ts && ts-node src/tests/phase11-marketing-crm.test.ts && ts-node src/tests/phase12-automated-payments.test.ts && ts-node src/tests/phase13-gateway-integrations.test.ts",
     "test:phase1": "ts-node src/tests/phase1-security.test.ts",
     "test:phase2": "ts-node src/tests/phase2-pos-offline-printer.test.ts",
     "test:phase3": "ts-node src/tests/phase3-payments-aggregators.test.ts",
@@ -20,7 +20,8 @@
     "test:phase10": "ts-node src/tests/phase10-production-hardening.test.ts",
     "db:restore": "ts-node src/scripts/restore.ts",
     "test:phase11": "ts-node src/tests/phase11-marketing-crm.test.ts",
-    "test:phase12": "ts-node src/tests/phase12-automated-payments.test.ts"
+    "test:phase12": "ts-node src/tests/phase12-automated-payments.test.ts",
+    "test:phase13": "ts-node src/tests/phase13-gateway-integrations.test.ts"
   },
   "dependencies": {
     "axios": "^1.8.1",

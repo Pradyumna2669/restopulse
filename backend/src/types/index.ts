@@ -85,6 +85,31 @@ export interface PaymentAutomationConfig {
   merchantName: string;
 }
 
+export interface GatewayCredential {
+  provider: PaymentProvider;
+  enabled: boolean;
+  environment: 'sandbox' | 'production';
+  credentials: {
+    keyId?: string;
+    keySecret?: string;
+    webhookSecret?: string;
+    merchantId?: string;
+    saltKey?: string;
+    saltIndex?: string;
+    terminalIp?: string;
+    terminalPort?: number;
+  };
+  lastTestedAt?: string;
+  testStatus?: 'success' | 'failed';
+  testError?: string;
+}
+
+export interface GatewaySettings {
+  primaryProvider: PaymentProvider;
+  autoCapture: boolean;
+  gateways: Partial<Record<PaymentProvider, GatewayCredential>>;
+}
+
 export interface RestaurantProfile {
   id: string;
   name: string;
@@ -110,6 +135,7 @@ export interface RestaurantProfile {
   };
   deliveryPartners?: DeliveryPartnerConfig[];
   paymentConfig?: PaymentAutomationConfig;
+  gatewaySettings?: GatewaySettings;
 }
 
 export interface Category {

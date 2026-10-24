@@ -22,7 +22,14 @@ import {
   QrCode,
   Volume2,
   CreditCard,
-  Zap
+  Zap,
+  Globe,
+
+  Copy,
+  Check,
+  Play,
+
+
 } from 'lucide-react';
 import {
   RestaurantProfile,
@@ -30,7 +37,10 @@ import {
   FeatureFlags,
   SystemHealthReport,
   BackupMetadata,
-  PaymentAutomationConfig
+  PaymentAutomationConfig,
+  GatewaySettings,
+
+  PaymentProvider
 } from '../types';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -78,6 +88,17 @@ export const RestaurantSettingsView: React.FC<RestaurantSettingsViewProps> = ({
       merchantName: profile.name || 'RestroPlus'
     }
   );
+
+  // Payment Gateways Integration States (Phase 13)
+  const [paymentSubTab, setPaymentSubTab] = useState<'automation' | 'gateways'>('automation');
+  const [gatewaySettings, setGatewaySettings] = useState<GatewaySettings | null>(profile.gatewaySettings || null);
+  const [selectedGateway, setSelectedGateway] = useState<PaymentProvider>('razorpay');
+  const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
+  const [testingGateway, setTestingGateway] = useState<string | null>(null);
+  const [gatewayTestResult, setGatewayTestResult] = useState<{ provider: string; success: boolean; message: string; error?: string } | null>(null);
+  const [simulatingWebhook, setSimulatingWebhook] = useState<string | null>(null);
+  const [copiedWebhook, setCopiedWebhook] = useState<string | null>(null);
+  const [isSavingGateway, setIsSavingGateway] = useState(false);
 
   // Profile Form States
   const [businessType, setBusinessType] = useState<BusinessType>(profile.businessType || 'cafe');
@@ -220,6 +241,8 @@ export const RestaurantSettingsView: React.FC<RestaurantSettingsViewProps> = ({
       fetchHealth();
     } else if (activeTab === 'backups') {
       fetchBackups();
+    } else if (activeTab === 'payments') {
+      api.getGatewaySettings().then(setGatewaySettings).catch(() => {});
     }
   }, [activeTab]);
 
@@ -286,6 +309,80 @@ export const RestaurantSettingsView: React.FC<RestaurantSettingsViewProps> = ({
     } catch (e) {
       console.warn('Audio synthesis unavailable', e);
     }
+  };
+
+  // Gateway Actions (Phase 13)
+  const handleSaveGateway = async (provider: PaymentProvider) => {
+    if (!gatewaySettings?.gateways[provider]) return;
+    try {
+      setIsSavingGateway(true);
+      const res = await api.updateGatewayCredentials(provider, gatewaySettings.gateways[provider]!);
+      setGatewaySettings(res.gatewaySettings);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      console.error('Failed to save gateway config', err);
+      alert('Failed to save gateway configuration.');
+    } finally {
+      setIsSavingGateway(false);
+    }
+  };
+
+  const handleSetPrimary = async (provider: PaymentProvider) => {
+    try {
+      const res = await api.setPrimaryGateway(provider);
+      setGatewaySettings(res.gatewaySettings);
+    } catch (err) {
+      console.error('Failed to set primary gateway', err);
+    }
+  };
+
+  const handleTestGateway = async (provider: PaymentProvider) => {
+    try {
+      setTestingGateway(provider);
+      setGatewayTestResult(null);
+      const res = await api.testGatewayConnection(provider);
+      setGatewayTestResult(res);
+      const updated = await api.getGatewaySettings();
+      setGatewaySettings(updated);
+    } catch (err: any) {
+      setGatewayTestResult({
+        provider,
+        success: false,
+        message: 'Connection test failed',
+        error: err?.message || 'Network error'
+      });
+    } finally {
+      setTestingGateway(null);
+    }
+  };
+
+  const handleSimulateWebhook = async (provider: PaymentProvider) => {
+    try {
+      setSimulatingWebhook(provider);
+      const res = await api.simulateGatewayWebhook(provider, {
+        amount: 350.00,
+        payerVpa: `guest@${provider}`
+      });
+      if (res.success) {
+        handleTestSoundbox();
+        alert(`⚡ Webhook simulation successful! ${res.soundboxSpeech || 'Payment settled on POS'}`);
+      } else {
+        alert(res.error || 'Webhook simulation rejected.');
+      }
+    } catch (err: any) {
+      alert(`Simulation failed: ${err?.message || 'Network error'}`);
+    } finally {
+      setSimulatingWebhook(null);
+    }
+  };
+
+  const handleCopyWebhook = (provider: PaymentProvider) => {
+    const origin = window.location.origin;
+    const url = `${origin}/api/webhooks/gateways/${provider}`;
+    navigator.clipboard.writeText(url);
+    setCopiedWebhook(provider);
+    setTimeout(() => setCopiedWebhook(null), 2500);
   };
 
   // Create Hot Backup Snapshot
@@ -907,6 +1004,40 @@ export const RestaurantSettingsView: React.FC<RestaurantSettingsViewProps> = ({
             </div>
           </Card>
 
+          {/* Sub-tab Navigation */}
+          <div className="flex flex-wrap items-center gap-2 border-b border-canvas-border pb-3">
+            <button
+              type="button"
+              onClick={() => setPaymentSubTab('automation')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                paymentSubTab === 'automation'
+                  ? 'bg-stone-900 text-white shadow-sm'
+                  : 'bg-stone-100 text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              <span>UPI & Soundbox Automation</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPaymentSubTab('gateways')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                paymentSubTab === 'gateways'
+                  ? 'bg-stone-900 text-white shadow-sm'
+                  : 'bg-stone-100 text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              <CreditCard className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Payment Gateway Integrations</span>
+              <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 rounded text-[9px] uppercase font-mono">
+                {gatewaySettings?.primaryProvider ? gatewaySettings.primaryProvider.toUpperCase() : '5 Gateways'}
+              </span>
+            </button>
+          </div>
+
+          {paymentSubTab === 'automation' && (
+            <>
           {/* Merchant UPI Parameters */}
           <Card className="space-y-4">
             <div className="border-b border-canvas-border pb-3">
@@ -1073,6 +1204,489 @@ export const RestaurantSettingsView: React.FC<RestaurantSettingsViewProps> = ({
               Save Payment Automation Settings
             </Button>
           </div>
+            </>
+          )}
+
+          {paymentSubTab === 'gateways' && (
+            <div className="space-y-6">
+              {/* Primary Active Gateway Selector Card */}
+              <Card className="bg-stone-50 border-stone-200 p-4 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500 block">
+                      Active Primary Checkout Provider
+                    </span>
+                    <h4 className="text-sm font-bold text-stone-900">
+                      Current Gateway: <span className="text-brand-600 uppercase font-mono">{gatewaySettings?.primaryProvider || 'RAZORPAY'}</span>
+                    </h4>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      Online orders, pay-at-table, and dynamic QR checkout will process transactions through this gateway.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {(['razorpay', 'phonepe', 'paytm', 'stripe', 'pinelabs'] as PaymentProvider[]).map(p => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => handleSetPrimary(p)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase transition-all flex items-center gap-1 ${
+                          gatewaySettings?.primaryProvider === p
+                            ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500/30'
+                            : 'bg-white border border-stone-200 text-stone-700 hover:border-stone-400'
+                        }`}
+                      >
+                        {gatewaySettings?.primaryProvider === p && <Check className="w-3 h-3" />}
+                        <span>{p}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+
+              {/* Gateway Provider Selection Tabs */}
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: 'razorpay' as PaymentProvider, name: 'Razorpay', badge: 'UPI, Cards, NetBanking', icon: '⚡' },
+                  { id: 'phonepe' as PaymentProvider, name: 'PhonePe PG', badge: 'Direct UPI & PG', icon: '🟣' },
+                  { id: 'paytm' as PaymentProvider, name: 'Paytm Business', badge: 'All-in-One POS', icon: '🔵' },
+                  { id: 'stripe' as PaymentProvider, name: 'Stripe', badge: 'Global Cards & Apple Pay', icon: '🌐' },
+                  { id: 'pinelabs' as PaymentProvider, name: 'Pine Labs', badge: 'Plutus EDC Terminal', icon: '💳' }
+                ].map(gw => {
+                  const conf = gatewaySettings?.gateways[gw.id];
+                  const isPrimary = gatewaySettings?.primaryProvider === gw.id;
+                  const isSelected = selectedGateway === gw.id;
+                  return (
+                    <button
+                      key={gw.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedGateway(gw.id);
+                        setGatewayTestResult(null);
+                      }}
+                      className={`flex-1 min-w-[160px] p-3 rounded-2xl border text-left transition-all ${
+                        isSelected
+                          ? 'bg-stone-900 text-white border-stone-900 shadow-md ring-2 ring-stone-900/10'
+                          : 'bg-white border-canvas-border hover:border-stone-400 text-stone-800'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-base">{gw.icon}</span>
+                        <div className="flex items-center gap-1">
+                          {isPrimary && (
+                            <span className="text-[9px] font-bold uppercase bg-emerald-500 text-white px-1.5 py-0.2 rounded-full">
+                              PRIMARY
+                            </span>
+                          )}
+                          <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded ${
+                            isSelected 
+                              ? 'bg-stone-800 text-stone-300' 
+                              : conf?.enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-stone-100 text-stone-500'
+                          }`}>
+                            {conf?.enabled ? (conf.environment === 'production' ? 'PROD' : 'SANDBOX') : 'OFF'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-xs font-bold">{gw.name}</div>
+                      <div className={`text-[10px] truncate ${isSelected ? 'text-stone-400' : 'text-stone-500'}`}>
+                        {gw.badge}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Active Selected Gateway Form Card */}
+              {(() => {
+                const conf = gatewaySettings?.gateways[selectedGateway] || {
+                  provider: selectedGateway,
+                  enabled: false,
+                  environment: 'sandbox',
+                  credentials: {}
+                };
+                const webhookUrl = `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000'}/api/webhooks/gateways/${selectedGateway}`;
+                const isPrimary = gatewaySettings?.primaryProvider === selectedGateway;
+
+                return (
+                  <Card className="space-y-5">
+                    {/* Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-canvas-border pb-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-base font-bold text-stone-900 uppercase">
+                            {selectedGateway} Gateway Configuration
+                          </h4>
+                          <Badge variant={conf.enabled ? 'success' : 'neutral'} size="sm">
+                            {conf.enabled ? 'Enabled' : 'Disabled'}
+                          </Badge>
+                          <Badge variant={conf.environment === 'production' ? 'terracotta' : 'neutral'} size="sm">
+                            {conf.environment.toUpperCase()} MODE
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-stone-500 mt-0.5">
+                          Configure API keys, webhooks, and live transaction settings for {selectedGateway.toUpperCase()}.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-stone-600">Production Mode:</span>
+                          <ToggleSwitch
+                            checked={conf.environment === 'production'}
+                            onChange={checked => {
+                              const env = checked ? 'production' : 'sandbox';
+                              if (gatewaySettings) {
+                                setGatewaySettings({
+                                  ...gatewaySettings,
+                                  gateways: {
+                                    ...gatewaySettings.gateways,
+                                    [selectedGateway]: { ...conf, environment: env }
+                                  }
+                                });
+                              }
+                            }}
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-2 border-l border-stone-200 pl-4">
+                          <span className="text-xs font-semibold text-stone-600">Enable Gateway:</span>
+                          <ToggleSwitch
+                            checked={conf.enabled}
+                            onChange={checked => {
+                              if (gatewaySettings) {
+                                setGatewaySettings({
+                                  ...gatewaySettings,
+                                  gateways: {
+                                    ...gatewaySettings.gateways,
+                                    [selectedGateway]: { ...conf, enabled: checked }
+                                  }
+                                });
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Inputs Matrix */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Provider Specific Inputs */}
+                      {(selectedGateway === 'razorpay' || selectedGateway === 'stripe') && (
+                        <div>
+                          <label className="text-xs font-semibold text-stone-700 block mb-1">
+                            {selectedGateway === 'razorpay' ? 'Key ID' : 'Publishable Key'} <span className="text-rose-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={conf.credentials.keyId || ''}
+                            onChange={e => {
+                              if (gatewaySettings) {
+                                setGatewaySettings({
+                                  ...gatewaySettings,
+                                  gateways: {
+                                    ...gatewaySettings.gateways,
+                                    [selectedGateway]: {
+                                      ...conf,
+                                      credentials: { ...conf.credentials, keyId: e.target.value.trim() }
+                                    }
+                                  }
+                                });
+                              }
+                            }}
+                            placeholder={selectedGateway === 'razorpay' ? 'rzp_live_... or rzp_test_...' : 'pk_live_...'}
+                            className="w-full text-xs px-3 py-2 rounded-xl border border-canvas-border bg-white text-stone-900 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                          />
+                        </div>
+                      )}
+
+                      {(selectedGateway === 'phonepe' || selectedGateway === 'paytm' || selectedGateway === 'pinelabs') && (
+                        <div>
+                          <label className="text-xs font-semibold text-stone-700 block mb-1">
+                            Merchant ID (MID) <span className="text-rose-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={conf.credentials.merchantId || ''}
+                            onChange={e => {
+                              if (gatewaySettings) {
+                                setGatewaySettings({
+                                  ...gatewaySettings,
+                                  gateways: {
+                                    ...gatewaySettings.gateways,
+                                    [selectedGateway]: {
+                                      ...conf,
+                                      credentials: { ...conf.credentials, merchantId: e.target.value.trim() }
+                                    }
+                                  }
+                                });
+                              }
+                            }}
+                            placeholder={selectedGateway === 'phonepe' ? 'e.g. PGTESTPAYUAT' : 'Merchant ID from dashboard'}
+                            className="w-full text-xs px-3 py-2 rounded-xl border border-canvas-border bg-white text-stone-900 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                          />
+                        </div>
+                      )}
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs font-semibold text-stone-700">
+                            {selectedGateway === 'phonepe' ? 'Salt Key' : 'Secret Key / Merchant Key'} <span className="text-rose-500">*</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setShowSecrets({ ...showSecrets, [selectedGateway]: !showSecrets[selectedGateway] })}
+                            className="text-[10px] text-stone-500 hover:text-stone-800 flex items-center gap-1"
+                          >
+                            {showSecrets[selectedGateway] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                            <span>{showSecrets[selectedGateway] ? 'Hide' : 'Show'}</span>
+                          </button>
+                        </div>
+                        <input
+                          type={showSecrets[selectedGateway] ? 'text' : 'password'}
+                          value={selectedGateway === 'phonepe' ? conf.credentials.saltKey || '' : conf.credentials.keySecret || ''}
+                          onChange={e => {
+                            if (gatewaySettings) {
+                              const val = e.target.value.trim();
+                              setGatewaySettings({
+                                ...gatewaySettings,
+                                gateways: {
+                                  ...gatewaySettings.gateways,
+                                  [selectedGateway]: {
+                                    ...conf,
+                                    credentials: {
+                                      ...conf.credentials,
+                                      ...(selectedGateway === 'phonepe' ? { saltKey: val } : { keySecret: val })
+                                    }
+                                  }
+                                }
+                              });
+                              }
+                            }}
+                            placeholder="Enter private API secret key"
+                            className="w-full text-xs px-3 py-2 rounded-xl border border-canvas-border bg-white text-stone-900 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                          />
+                      </div>
+
+                      {/* Webhook Secret / Salt Index */}
+                      {selectedGateway === 'phonepe' ? (
+                        <div>
+                          <label className="text-xs font-semibold text-stone-700 block mb-1">
+                            Salt Index (Default: 1)
+                          </label>
+                          <input
+                            type="text"
+                            value={conf.credentials.saltIndex || '1'}
+                            onChange={e => {
+                              if (gatewaySettings) {
+                                setGatewaySettings({
+                                  ...gatewaySettings,
+                                  gateways: {
+                                    ...gatewaySettings.gateways,
+                                    [selectedGateway]: {
+                                      ...conf,
+                                      credentials: { ...conf.credentials, saltIndex: e.target.value.trim() }
+                                    }
+                                  }
+                                });
+                              }
+                            }}
+                            placeholder="1"
+                            className="w-full text-xs px-3 py-2 rounded-xl border border-canvas-border bg-white text-stone-900 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                          />
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="text-xs font-semibold text-stone-700 block mb-1">
+                            Webhook Signing Secret
+                          </label>
+                          <input
+                            type="text"
+                            value={conf.credentials.webhookSecret || ''}
+                            onChange={e => {
+                              if (gatewaySettings) {
+                                setGatewaySettings({
+                                  ...gatewaySettings,
+                                  gateways: {
+                                    ...gatewaySettings.gateways,
+                                    [selectedGateway]: {
+                                      ...conf,
+                                      credentials: { ...conf.credentials, webhookSecret: e.target.value.trim() }
+                                    }
+                                  }
+                                });
+                              }
+                            }}
+                            placeholder="e.g. whsec_... for HMAC signature verification"
+                            className="w-full text-xs px-3 py-2 rounded-xl border border-canvas-border bg-white text-stone-900 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                          />
+                        </div>
+                      )}
+
+                      {/* Pine Labs Terminal IP */}
+                      {selectedGateway === 'pinelabs' && (
+                        <div>
+                          <label className="text-xs font-semibold text-stone-700 block mb-1">
+                            Countertop Terminal IP Address & Port
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={conf.credentials.terminalIp || ''}
+                              onChange={e => {
+                                if (gatewaySettings) {
+                                  setGatewaySettings({
+                                    ...gatewaySettings,
+                                    gateways: {
+                                      ...gatewaySettings.gateways,
+                                      [selectedGateway]: {
+                                        ...conf,
+                                        credentials: { ...conf.credentials, terminalIp: e.target.value.trim() }
+                                      }
+                                    }
+                                  });
+                                }
+                              }}
+                              placeholder="192.168.1.120"
+                              className="flex-1 text-xs px-3 py-2 rounded-xl border border-canvas-border bg-white text-stone-900 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                            />
+                            <input
+                              type="number"
+                              value={conf.credentials.terminalPort || 8080}
+                              onChange={e => {
+                                if (gatewaySettings) {
+                                  setGatewaySettings({
+                                    ...gatewaySettings,
+                                    gateways: {
+                                      ...gatewaySettings.gateways,
+                                      [selectedGateway]: {
+                                        ...conf,
+                                        credentials: { ...conf.credentials, terminalPort: Number(e.target.value) }
+                                      }
+                                    }
+                                  });
+                                }
+                              }}
+                              placeholder="8080"
+                              className="w-20 text-xs px-3 py-2 rounded-xl border border-canvas-border bg-white text-stone-900 font-mono text-center focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Webhook Callback Box (Vital for Owner setup) */}
+                    <div className="bg-stone-900 text-white rounded-2xl p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                          <Globe className="w-3.5 h-3.5" />
+                          <span>Inbound Webhook Callback URL</span>
+                        </span>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleCopyWebhook(selectedGateway)}
+                          leftIcon={copiedWebhook === selectedGateway ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                          className="bg-stone-800 hover:bg-stone-700 text-stone-100 border-stone-700 text-xs py-1"
+                        >
+                          {copiedWebhook === selectedGateway ? 'Copied to Clipboard!' : 'Copy Webhook URL'}
+                        </Button>
+                      </div>
+
+                      <div className="p-2.5 bg-stone-950 rounded-xl font-mono text-xs text-emerald-400 break-all select-all border border-stone-800">
+                        {webhookUrl}
+                      </div>
+
+                      <p className="text-[11px] text-stone-400 leading-relaxed">
+                        Copy this URL and paste it into your <strong>{selectedGateway.toUpperCase()} Merchant Dashboard</strong> ➔ <em>Webhooks & API Callbacks</em>. Select events: <code className="text-amber-300">payment.captured</code>, <code className="text-amber-300">payment.failed</code>, and <code className="text-amber-300">refund.processed</code>.
+                      </p>
+                    </div>
+
+                    {/* Test Result Feedback Alert */}
+                    {gatewayTestResult && gatewayTestResult.provider === selectedGateway && (
+                      <div className={`p-3 rounded-xl border text-xs flex items-center justify-between ${
+                        gatewayTestResult.success
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                          : 'bg-rose-50 border-rose-200 text-rose-800'
+                      }`}>
+                        <div className="flex items-center gap-2">
+                          {gatewayTestResult.success ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                          ) : (
+                            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                          )}
+                          <span>
+                            {gatewayTestResult.message}
+                            {gatewayTestResult.error ? ` (${gatewayTestResult.error})` : ''}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setGatewayTestResult(null)}
+                          className="text-xs opacity-60 hover:opacity-100 ml-2 font-bold"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Action Bar */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-canvas-border">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleTestGateway(selectedGateway)}
+                          isLoading={testingGateway === selectedGateway}
+                          leftIcon={<Zap className="w-3.5 h-3.5 text-amber-500" />}
+                          className="text-xs"
+                        >
+                          Validate & Test API Keys
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleSimulateWebhook(selectedGateway)}
+                          isLoading={simulatingWebhook === selectedGateway}
+                          leftIcon={<Play className="w-3.5 h-3.5 text-emerald-500" />}
+                          className="text-xs"
+                        >
+                          Simulate Test Webhook (₹350)
+                        </Button>
+
+                        {!isPrimary && (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleSetPrimary(selectedGateway)}
+                            leftIcon={<Check className="w-3.5 h-3.5 text-blue-500" />}
+                            className="text-xs"
+                          >
+                            Set as Primary
+                          </Button>
+                        )}
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="md"
+                        onClick={() => handleSaveGateway(selectedGateway)}
+                        isLoading={isSavingGateway}
+                        leftIcon={<Save className="w-4 h-4" />}
+                      >
+                        Save {selectedGateway.toUpperCase()} Settings
+                      </Button>
+                    </div>
+                  </Card>
+                );
+              })()}
+            </div>
+          )}
         </form>
       )}
 
